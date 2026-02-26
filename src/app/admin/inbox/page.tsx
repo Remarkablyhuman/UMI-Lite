@@ -169,39 +169,59 @@ export default function AdminInbox() {
           {createError && <p style={{ color: '#f87171', fontSize: 20, marginTop: 12 }}>{createError}</p>}
         </section>
 
-        <section>
-          <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#444', marginBottom: 18 }}>全部任务 ({references.length})</h2>
-          {references.length === 0
-            ? <p style={{ fontSize: 20, color: '#555' }}>暂无任务。</p>
-            : references.map(r => {
-              const ref_progress = progress[r.id] ?? {}
-              return (
-                <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1e1e1e' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 18 }}>
-                    <span style={{ fontWeight: 600, minWidth: 80 }}>{r.run_ref_id}</span>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                      {STAGES.map(stage => {
-                        const s = ref_progress[stage]
-                        const color = s === 'DONE' ? '#4ade80' : s === 'OPEN' ? '#f0f0f0' : '#333'
-                        return (
-                          <span key={stage} style={{ color, fontSize: 16 }}>
-                            {s === 'DONE' ? '✓' : s === 'OPEN' ? '●' : '○'} {STAGE_LABELS[stage]}
-                          </span>
-                        )
-                      })}
-                    </div>
+        {(() => {
+          const isFinished = (r: Reference) => STAGES.every(s => progress[r.id]?.[s] === 'DONE')
+          const inProgress = references.filter(r => !isFinished(r))
+          const finished = references.filter(r => isFinished(r))
+
+          const renderRow = (r: Reference) => {
+            const ref_progress = progress[r.id] ?? {}
+            return (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1e1e1e' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 18 }}>
+                  <span style={{ fontWeight: 600, minWidth: 80 }}>{r.run_ref_id}</span>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    {STAGES.map(stage => {
+                      const s = ref_progress[stage]
+                      const color = s === 'DONE' ? '#4ade80' : s === 'OPEN' ? '#f0f0f0' : '#333'
+                      return (
+                        <span key={stage} style={{ color, fontSize: 16 }}>
+                          {s === 'DONE' ? '✓' : s === 'OPEN' ? '●' : '○'} {STAGE_LABELS[stage]}
+                        </span>
+                      )
+                    })}
                   </div>
-                  <button
-                    onClick={() => router.push(`/admin/run/${r.run_ref_id}`)}
-                    style={{ fontSize: 16, padding: '4px 12px', cursor: 'pointer', border: 'none', background: '#f0f0f0', color: '#111' }}
-                  >
-                    查看
-                  </button>
                 </div>
-              )
-            })
+                <button
+                  onClick={() => router.push(`/admin/run/${r.run_ref_id}`)}
+                  style={{ fontSize: 16, padding: '4px 12px', cursor: 'pointer', border: 'none', background: '#f0f0f0', color: '#111' }}
+                >
+                  查看
+                </button>
+              </div>
+            )
           }
-        </section>
+
+          return (
+            <>
+              <section style={{ marginBottom: 48 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#444', marginBottom: 18 }}>进行中 ({inProgress.length})</h2>
+                {inProgress.length === 0
+                  ? <p style={{ fontSize: 20, color: '#555' }}>暂无进行中的任务。</p>
+                  : inProgress.map(renderRow)
+                }
+              </section>
+
+              <section>
+                <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#444', marginBottom: 18 }}>已完成 ({finished.length})</h2>
+                {finished.length === 0
+                  ? <p style={{ fontSize: 20, color: '#555' }}>暂无已完成的任务。</p>
+                  : finished.map(renderRow)
+                }
+              </section>
+            </>
+          )
+        })()}
       </div>
     </div>
   )

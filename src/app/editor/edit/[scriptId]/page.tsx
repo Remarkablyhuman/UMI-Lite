@@ -4,29 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type Script = {
-  id: string
-  script_text: string | null
-  ref: { run_ref_id: string } | null
-}
-
-type Deliverable = {
-  id: string
-  type: string
-  baidu_share_url: string
-  baidu_extract_code: string | null
-  file_label: string | null
-}
-
 export default function EditorEditPage() {
   const router = useRouter()
   const { scriptId } = useParams<{ scriptId: string }>()
   const supabase = createClient()
 
-  const [script, setScript] = useState<Script | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [taskId, setTaskId] = useState<string | null>(null)
-  const [rawDeliverable, setRawDeliverable] = useState<Deliverable | null>(null)
   const [baiduUrl, setBaiduUrl] = useState('')
   const [baiduCode, setBaiduCode] = useState('')
   const [fileLabel, setFileLabel] = useState('')
@@ -39,21 +23,6 @@ export default function EditorEditPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
-
-      const { data: sc } = await supabase
-        .from('scripts')
-        .select('id, script_text, ref:references!reference_id(run_ref_id)')
-        .eq('id', scriptId)
-        .single()
-      setScript((sc as Script) ?? null)
-
-      const { data: raw } = await supabase
-        .from('deliverables')
-        .select('id, type, baidu_share_url, baidu_extract_code, file_label')
-        .eq('script_id', scriptId)
-        .eq('type', 'raw')
-        .single()
-      setRawDeliverable(raw ?? null)
 
       const { data: task } = await supabase
         .from('tasks')
@@ -75,7 +44,7 @@ export default function EditorEditPage() {
     setError('')
     setSubmitting(true)
 
-    if (!script || !userId) return
+    if (!userId) return
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId,
@@ -88,7 +57,6 @@ export default function EditorEditPage() {
 
     if (delErr) { setError(delErr.message); setSubmitting(false); return }
 
-    // Mark EDIT_VIDEO task DONE (editor can update their assigned task)
     if (taskId) {
       await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
     }
@@ -97,7 +65,6 @@ export default function EditorEditPage() {
   }
 
   if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
-  if (!script) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Script not found.</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
@@ -106,32 +73,8 @@ export default function EditorEditPage() {
           ← 返回
         </button>
 
-        <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 6 }}>{script.ref?.run_ref_id ?? scriptId}</h1>
-        <p style={{ fontSize: 18, color: '#555', marginBottom: 48 }}>请剪辑原片并提交成片百度网盘链接。</p>
+        <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 48 }}>提交成片</h1>
 
-        <div style={{ marginBottom: 48 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#444', marginBottom: 18 }}>原片</h2>
-          {rawDeliverable ? (
-            <div style={{ fontSize: 20 }}>
-              <p style={{ marginBottom: 6 }}>{rawDeliverable.file_label}</p>
-              <p style={{ marginBottom: 6 }}>
-                <a href={rawDeliverable.baidu_share_url} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>{rawDeliverable.baidu_share_url}</a>
-              </p>
-              {rawDeliverable.baidu_extract_code && (
-                <p style={{ color: '#555' }}>Extraction code: {rawDeliverable.baidu_extract_code}</p>
-              )}
-            </div>
-          ) : (
-            <p style={{ fontSize: 20, color: '#f87171' }}>未找到原片。</p>
-          )}
-        </div>
-
-        <div style={{ marginBottom: 48 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#444', marginBottom: 18 }}>脚本</h2>
-          <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#1a1a1a', padding: 18, color: '#f0f0f0', border: '1px solid #2a2a2a' }}>{script.script_text}</pre>
-        </div>
-
-        <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 24 }}>提交成片</h2>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <input
             type="text"

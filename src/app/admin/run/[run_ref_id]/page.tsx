@@ -57,10 +57,11 @@ export default function AdminRunPage() {
   const [guests, setGuests] = useState<GuestProfile[]>([])
   const [editors, setEditors] = useState<GuestProfile[]>([])
   const [scriptText, setScriptText] = useState('')
-  const [selectedGuestId, setSelectedGuestId] = useState('')
+  const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([])
   const [selectedEditorId, setSelectedEditorId] = useState('')
   const [loading, setLoading] = useState(true)
   const [actionMsg, setActionMsg] = useState('')
+  const [generating, setGenerating] = useState(false)
 
   async function load() {
     const { data: ref } = await supabase
@@ -79,6 +80,7 @@ export default function AdminRunPage() {
       .single()
     setScript(sc ?? null)
     if (sc?.script_text) setScriptText(sc.script_text)
+    if (sc?.guest_id) setSelectedGuestIds([sc.guest_id])
 
     const { data: dels } = sc
       ? await supabase
@@ -124,22 +126,67 @@ export default function AdminRunPage() {
     setActionMsg('参考素材已标记为已解析。')
   }
 
-  async function approveReference() {
-    if (!scriptText.trim()) { setActionMsg('请先输入脚本内容。'); return }
-    if (!selectedGuestId) { setActionMsg('请先选择达人。'); return }
+  async function generateScript() {
+    setGenerating(true)
+    setActionMsg('')
+    try {
+      const res = await fetch('/api/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: reference!.url }),
+      })
+      const data = await res.json()
+      if (data.script) setScriptText(data.script)
+      else setActionMsg(data.error ?? 'AI 生成失败')
+    } catch {
+      setActionMsg('AI 生成失败')
+    }
+    setGenerating(false)
+  }
 
-    const { data: newScript, error } = await supabase
-      .from('scripts')
-      .insert({
+  function toggleGuest(id: string) {
+    setSelectedGuestIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  async function saveDraftScript() {
+    if (!scriptText.trim()) { setActionMsg('请输入脚本内容。'); return }
+    if (selectedGuestIds.length === 0) { setActionMsg('请先选择达人。'); return }
+
+    if (script) {
+      await supabase.from('scripts').update({ script_text: scriptText.trim(), guest_id: selectedGuestIds[0] }).eq('id', script.id)
+    } else {
+      await supabase.from('scripts').insert({
         reference_id: reference!.id,
-        guest_id: selectedGuestId,
+        guest_id: selectedGuestIds[0],
         script_text: scriptText.trim(),
         status: 'DRAFT',
       })
-      .select('id')
-      .single()
+    }
+    setActionMsg('脚本草稿已保存。')
+  }
 
-    if (error || !newScript) { setActionMsg(error?.message ?? 'Failed to create script'); return }
+  async function approveReference() {
+    if (selectedGuestIds.length === 0) { setActionMsg('请先选择达人。'); return }
+
+    let scriptId = script?.id
+
+    if (!scriptId) {
+      if (!scriptText.trim()) { setActionMsg('请先输入脚本内容。'); return }
+      const { data: newScript, error } = await supabase
+        .from('scripts')
+        .insert({
+          reference_id: reference!.id,
+          guest_id: selectedGuestIds[0],
+          script_text: scriptText.trim(),
+          status: 'DRAFT',
+        })
+        .select('id')
+        .single()
+      if (error || !newScript) { setActionMsg(error?.message ?? 'Failed to create script'); return }
+      scriptId = newScript.id
+    } else {
+      await supabase.from('scripts').update({ script_text: scriptText.trim(), guest_id: selectedGuestIds[0] }).eq('id', scriptId)
+    }
 
     await supabase.from('references').update({ status: 'APPROVED' }).eq('id', reference!.id)
 
@@ -152,33 +199,42 @@ export default function AdminRunPage() {
       type: 'REVIEW_SCRIPT',
       status: 'OPEN',
       reference_id: reference!.id,
-      script_id: newScript.id,
+      script_id: scriptId,
       assignee_role: 'admin',
     })
 
     setActionMsg('参考素材已审核通过，脚本已创建。')
   }
 
+  async function saveScript() {
+    if (!script) return
+    await supabase.from('scripts').update({ script_text: scriptText }).eq('id', script.id)
+    setActionMsg('脚本已保存。')
+  }
+
   async function approveScript() {
     if (!script) return
+    if (selectedGuestIds.length === 0) { setActionMsg('请先选择达人。'); return }
 
-    await supabase.from('scripts').update({ status: 'APPROVED' }).eq('id', script.id)
+    await supabase.from('scripts').update({ status: 'APPROVED', script_text: scriptText }).eq('id', script.id)
 
     const reviewTask = tasks.find(t => t.type === 'REVIEW_SCRIPT' && t.status === 'OPEN')
     if (reviewTask) {
       await supabase.from('tasks').update({ status: 'DONE' }).eq('id', reviewTask.id)
     }
 
-    await supabase.from('tasks').insert({
-      type: 'RECORD_VIDEO',
-      status: 'OPEN',
-      reference_id: reference!.id,
-      script_id: script.id,
-      assignee_id: script.guest_id,
-      assignee_role: 'guest',
-    })
+    await supabase.from('tasks').insert(
+      selectedGuestIds.map(guestId => ({
+        type: 'RECORD_VIDEO',
+        status: 'OPEN',
+        reference_id: reference!.id,
+        script_id: script.id,
+        assignee_id: guestId,
+        assignee_role: 'guest',
+      }))
+    )
 
-    setActionMsg('脚本已审核通过，录制任务已发送给达人。')
+    setActionMsg(`脚本已审核通过，录制任务已发送给 ${selectedGuestIds.length} 位达人。`)
   }
 
   async function createEditTask() {
@@ -251,31 +307,50 @@ export default function AdminRunPage() {
         </Section>
 
         <Section title="脚本">
-          {script ? (
-            <div>
-              <p style={{ fontSize: 18, color: '#555', marginBottom: 12 }}>Status: {script.status}</p>
-              <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#1a1a1a', padding: 18, color: '#f0f0f0', border: '1px solid #2a2a2a' }}>{script.script_text}</pre>
-            </div>
-          ) : (
+          {openTask?.type === 'REVIEW_REFERENCE' && reference.status === 'PARSED' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <select
-                value={selectedGuestId}
-                onChange={e => setSelectedGuestId(e.target.value)}
-                style={{ padding: '9px 15px', fontSize: 20, border: '1px solid #2a2a2a', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
-              >
-                <option value="">— 选择达人 —</option>
-                {guests.map(g => (
-                  <option key={g.id} value={g.id}>{g.display_name ?? g.email ?? g.id}</option>
-                ))}
-              </select>
+              <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={generateScript}
+                  disabled={generating}
+                  style={{ padding: '6px 18px', fontSize: 17, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer' }}
+                >
+                  {generating ? 'AI 生成中...' : 'AI 生成脚本'}
+                </button>
+              </div>
               <textarea
                 placeholder="输入脚本内容..."
                 value={scriptText}
                 onChange={e => setScriptText(e.target.value)}
-                rows={6}
+                rows={8}
                 style={{ fontSize: 20, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
               />
+              <button onClick={() => action(saveDraftScript)} style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
+                保存草稿
+              </button>
             </div>
+          ) : script ? (
+            <div>
+              <p style={{ fontSize: 18, color: '#555', marginBottom: 12 }}>Status: {script.status}</p>
+              {openTask?.type === 'REVIEW_SCRIPT' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <textarea
+                    value={scriptText}
+                    onChange={e => setScriptText(e.target.value)}
+                    rows={10}
+                    style={{ fontSize: 20, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
+                  />
+                  <button onClick={() => action(saveScript)} style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
+                    保存脚本
+                  </button>
+                </div>
+              ) : (
+                <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#1a1a1a', padding: 18, color: '#f0f0f0', border: '1px solid #2a2a2a' }}>{script.script_text}</pre>
+              )}
+            </div>
+          ) : (
+            <p style={{ fontSize: 20, color: '#555' }}>暂无脚本。</p>
           )}
         </Section>
 
@@ -301,11 +376,14 @@ export default function AdminRunPage() {
             {reference.status === 'SUBMITTED' && (
               <ActionBtn label="标记参考素材已解析" onClick={() => action(markParsed)} />
             )}
-            {reference.status === 'PARSED' && !script && (
+            {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
               <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
             )}
             {script && script.status === 'DRAFT' && openTask?.type === 'REVIEW_SCRIPT' && (
-              <ActionBtn label="审核通过脚本 → 发送给达人" onClick={() => action(approveScript)} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
+                <ActionBtn label={`审核通过脚本 → 发送给达人（${selectedGuestIds.length} 人）`} onClick={() => action(approveScript)} />
+              </div>
             )}
             {recordDone && !editTaskExists && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -335,6 +413,32 @@ export default function AdminRunPage() {
           {actionMsg && <p style={{ fontSize: 20, color: '#4ade80', marginTop: 18 }}>{actionMsg}</p>}
         </Section>
       </div>
+    </div>
+  )
+}
+
+function GuestCheckboxes({ guests, selectedIds, onToggle }: { guests: GuestProfile[]; selectedIds: string[]; onToggle: (id: string) => void }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      {guests.map(g => {
+        const checked = selectedIds.includes(g.id)
+        return (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => onToggle(g.id)}
+            style={{
+              padding: '6px 15px', fontSize: 18, cursor: 'pointer',
+              background: checked ? '#f0f0f0' : '#1a1a1a',
+              color: checked ? '#111' : '#888',
+              border: '1px solid #2a2a2a',
+              fontWeight: checked ? 600 : 400,
+            }}
+          >
+            {g.display_name ?? g.email ?? g.id}
+          </button>
+        )
+      })}
     </div>
   )
 }
