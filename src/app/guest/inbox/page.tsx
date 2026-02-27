@@ -9,7 +9,7 @@ type Task = {
   type: string
   status: string
   script_id: string | null
-  ref: { run_ref_id: string } | null
+  reference_id: string | null
 }
 
 export default function GuestInbox() {
@@ -17,6 +17,7 @@ export default function GuestInbox() {
   const supabase = createClient()
 
   const [tasks, setTasks] = useState<Task[]>([])
+  const [runRefMap, setRunRefMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,12 +36,25 @@ export default function GuestInbox() {
 
       const { data } = await supabase
         .from('tasks')
-        .select('id, type, status, script_id, ref:references(run_ref_id)')
+        .select('id, type, status, script_id, reference_id')
         .eq('assignee_id', user.id)
         .eq('status', 'OPEN')
         .order('created_at', { ascending: false })
 
-      setTasks((data ?? []) as Task[])
+      const taskList = (data ?? []) as Task[]
+      setTasks(taskList)
+
+      const refIds = [...new Set(taskList.map(t => t.reference_id).filter(Boolean))] as string[]
+      if (refIds.length > 0) {
+        const { data: refs } = await supabase
+          .from('references')
+          .select('id, run_ref_id')
+          .in('id', refIds)
+        const map: Record<string, string> = {}
+        for (const r of refs ?? []) map[r.id] = r.run_ref_id
+        setRunRefMap(map)
+      }
+
       setLoading(false)
     }
     load()
@@ -68,7 +82,7 @@ export default function GuestInbox() {
           : tasks.map(t => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
               <div>
-                <span style={{ fontSize: 20, fontWeight: 600 }}>{t.ref?.run_ref_id ?? '—'}</span>
+                <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
                 <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>{t.type}</span>
               </div>
               {t.type === 'RECORD_VIDEO' && t.script_id && (

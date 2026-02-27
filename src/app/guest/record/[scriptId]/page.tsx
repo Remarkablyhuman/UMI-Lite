@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 type Script = {
   id: string
   script_text: string | null
+  reference_id: string | null
   ref: { run_ref_id: string } | null
 }
 
@@ -33,7 +34,7 @@ export default function GuestRecordPage() {
 
       const { data: sc } = await supabase
         .from('scripts')
-        .select('id, script_text, ref:references!reference_id(run_ref_id)')
+        .select('id, script_text, reference_id, ref:references!reference_id(run_ref_id)')
         .eq('id', scriptId)
         .single()
       setScript((sc as Script) ?? null)

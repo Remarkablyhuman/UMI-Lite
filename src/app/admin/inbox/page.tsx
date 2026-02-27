@@ -38,6 +38,7 @@ export default function AdminInbox() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [pendingRunRef, setPendingRunRef] = useState<string | null>(null)
 
   async function loadData() {
     const { data: refs } = await supabase
@@ -121,7 +122,7 @@ export default function AdminInbox() {
     setRunRefId('')
     setUrl('')
     setCreating(false)
-    router.push(`/admin/run/${ref}`)
+    setPendingRunRef(ref)
   }
 
   async function handleSignOut() {
@@ -132,6 +133,7 @@ export default function AdminInbox() {
   if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
@@ -224,5 +226,34 @@ export default function AdminInbox() {
         })()}
       </div>
     </div>
+
+    {pendingRunRef && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+        <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', padding: 48, maxWidth: 480, width: '100%', fontFamily: 'monospace' }}>
+          <p style={{ fontSize: 20, color: '#f0f0f0', marginBottom: 32, lineHeight: 1.6 }}>
+            创建成功，请跳转到 Fieldshortcut 将 URL 转成文案，再粘贴回来
+          </p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={() => {
+                window.open('https://fieldshortcut.com/en/tools/video-summary', '_blank')
+                router.push(`/admin/run/${pendingRunRef}`)
+                setPendingRunRef(null)
+              }}
+              style={{ flex: 1, padding: '12px', fontSize: 20, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer' }}
+            >
+              确定
+            </button>
+            <button
+              onClick={() => { router.push(`/admin/run/${pendingRunRef}`); setPendingRunRef(null) }}
+              style={{ flex: 1, padding: '12px', fontSize: 20, background: '#1a1a1a', color: '#888', border: '1px solid #2a2a2a', cursor: 'pointer' }}
+            >
+              跳过
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

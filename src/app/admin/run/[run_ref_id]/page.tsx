@@ -306,10 +306,13 @@ export default function AdminRunPage() {
           </p>
         </Section>
 
+        <Section title="选择嘉宾">
+            <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
+        </Section>
+
         <Section title="脚本">
-          {openTask?.type === 'REVIEW_REFERENCE' && reference.status === 'PARSED' ? (
+          {openTask?.type === 'REVIEW_REFERENCE' && (reference.status === 'SUBMITTED' || reference.status === 'PARSED') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={generateScript}
@@ -376,7 +379,7 @@ export default function AdminRunPage() {
             {reference.status === 'SUBMITTED' && (
               <ActionBtn label="标记参考素材已解析" onClick={() => action(markParsed)} />
             )}
-            {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
+            {(reference.status === 'SUBMITTED' || reference.status === 'PARSED') && openTask?.type === 'REVIEW_REFERENCE' && (
               <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
             )}
             {script && script.status === 'DRAFT' && openTask?.type === 'REVIEW_SCRIPT' && (
