@@ -72,9 +72,14 @@ export default function GuestInbox() {
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
           <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 我的任务</h1>
-          <button onClick={handleSignOut} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
-            退出登录
-          </button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => router.push('/guest/persona')} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
+              我的画像
+            </button>
+            <button onClick={handleSignOut} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
+              退出登录
+            </button>
+          </div>
         </div>
 
         {tasks.length === 0
