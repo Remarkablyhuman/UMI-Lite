@@ -62,6 +62,12 @@ export default function AdminRunPage() {
   const [loading, setLoading] = useState(true)
   const [actionMsg, setActionMsg] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [extraInstructions, setExtraInstructions] = useState('')
+  const [genTargetChars, setGenTargetChars] = useState(600)
+  const [genPlatform, setGenPlatform] = useState('wechat')
+  const [genFormat, setGenFormat] = useState('voice_over')
+  const [genPart1, setGenPart1] = useState('')
+  const [genPart2, setGenPart2] = useState('')
 
   async function load() {
     const { data: ref } = await supabase
@@ -127,17 +133,36 @@ export default function AdminRunPage() {
   }
 
   async function generateScript() {
+    if (selectedGuestIds.length === 0) { setActionMsg('请先选择嘉宾。'); return }
     setGenerating(true)
     setActionMsg('')
     try {
+      const { data: personaRow } = await supabase
+        .from('guest_profiles')
+        .select('profile_data')
+        .eq('guest_id', selectedGuestIds[0])
+        .maybeSingle()
+
       const res = await fetch('/api/generate-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: reference!.url }),
+        body: JSON.stringify({
+          referenceTranscript: scriptText,
+          extraInstructions,
+          personaJson: personaRow?.profile_data ?? {},
+          constraints: {
+            target_chars: genTargetChars,
+            platform: genPlatform,
+            format: genFormat,
+          },
+        }),
       })
       const data = await res.json()
-      if (data.script) setScriptText(data.script)
-      else setActionMsg(data.error ?? 'AI 生成失败')
+      if (data.error) { setActionMsg(data.error ?? 'AI 生成失败') }
+      else {
+        setGenPart1(data.part1 ?? '')
+        setGenPart2(data.part2 ?? '')
+      }
     } catch {
       setActionMsg('AI 生成失败')
     }
@@ -313,27 +338,80 @@ export default function AdminRunPage() {
         <Section title="脚本">
           {openTask?.type === 'REVIEW_REFERENCE' && (reference.status === 'SUBMITTED' || reference.status === 'PARSED') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {reference.status === 'PARSED' && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={generateScript}
-                    disabled={generating}
-                    style={{ padding: '6px 18px', fontSize: 17, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer' }}
-                  >
-                    {generating ? 'AI 生成中...' : 'AI 生成脚本'}
-                  </button>
-                </div>
-              )}
-              <textarea
-                placeholder="输入脚本内容..."
-                value={scriptText}
-                onChange={e => setScriptText(e.target.value)}
-                rows={8}
-                style={{ fontSize: 20, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
-              />
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  placeholder="输入脚本内容..."
+                  value={scriptText}
+                  onChange={e => setScriptText(e.target.value)}
+                  rows={8}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 20, padding: 15, paddingBottom: 32, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
+                />
+                <span style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 13, color: '#444', pointerEvents: 'none' }}>
+                  {scriptText.trim().length} 字
+                </span>
+              </div>
               <button onClick={() => action(saveDraftScript)} style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
                 保存草稿
               </button>
+              {reference.status === 'PARSED' && (
+                <>
+                  <input type="hidden" value={extraInstructions} onChange={e => setExtraInstructions(e.target.value)} />
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <input
+                      type="number"
+                      value={genTargetChars}
+                      onChange={e => setGenTargetChars(Math.min(2000, Math.max(1, Number(e.target.value))))}
+                      placeholder="目标字数"
+                      
+                      max={2000}
+                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+                    />
+                    <select
+                      value={genPlatform}
+                      onChange={e => setGenPlatform(e.target.value)}
+                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+                    >
+                      <option value="wechat">微信视频号</option>
+                      <option value="xhs">小红书</option>
+                      <option value="tiktok">抖音</option>
+                      <option value="youtube">YouTube</option>
+                    </select>
+                    <select
+                      value={genFormat}
+                      onChange={e => setGenFormat(e.target.value)}
+                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+                    >
+                      <option value="voice_over">自述</option>
+                      <option value="on_camera">口播</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={generateScript}
+                    disabled={generating}
+                    style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    {generating ? 'AI 生成中...' : 'AI 生成脚本'}
+                  </button>
+                  {(genPart1 || genPart2) && (
+                    <>
+                      <p style={{ fontSize: 15, color: '#555', margin: '8px 0 4px' }}>脚本正文 <span style={{ color: '#444' }}>({genPart1.trim().length} 字)</span></p>
+                      <textarea
+                        value={genPart1}
+                        onChange={e => setGenPart1(e.target.value)}
+                        rows={10}
+                        style={{ fontSize: 18, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#0a0a0a', color: '#ccc', outline: 'none' }}
+                      />
+                      <p style={{ fontSize: 15, color: '#555', margin: '8px 0 4px' }}>引用依据</p>
+                      <textarea
+                        readOnly
+                        value={genPart2}
+                        rows={6}
+                        style={{ fontSize: 16, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#0a0a0a', color: '#666', outline: 'none' }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
             </div>
           ) : script ? (
             <div>

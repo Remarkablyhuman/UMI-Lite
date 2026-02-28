@@ -10,6 +10,58 @@
  * - ...
  */
 
+import OpenAI from 'openai'
+import { NextRequest, NextResponse } from 'next/server'
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { personaJson, referenceTranscript, extraInstructions, constraints } = body
+
+    if (!referenceTranscript || typeof referenceTranscript !== 'string') {
+      return NextResponse.json({ error: 'referenceTranscript is required' }, { status: 400 })
+    }
+
+    const { system, user } = buildHumanScriptWithEvidencePrompt({
+      personaJson: personaJson ?? {},
+      referenceTranscript,
+      topicBrief: extraInstructions ?? '',
+      constraints,
+    })
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.7,
+    })
+
+    const raw = completion.choices[0]?.message?.content ?? ''
+
+    // Split on the --- separator that precedes "Evidence Used:"
+    const sepIndex = raw.search(/\n---\n/)
+    let part1: string
+    let part2: string
+    if (sepIndex !== -1) {
+      part1 = raw.slice(0, sepIndex).trim()
+      part2 = raw.slice(sepIndex + 5).trim() // skip "\n---\n"
+    } else {
+      // Fallback: return everything as part1
+      part1 = raw.trim()
+      part2 = ''
+    }
+
+    return NextResponse.json({ part1, part2 })
+  } catch (err: any) {
+    console.error('[generate-script]', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 export function buildHumanScriptWithEvidencePrompt(params: {
   personaJson: any;
   referenceTranscript: string;
@@ -17,7 +69,7 @@ export function buildHumanScriptWithEvidencePrompt(params: {
   constraints?: {
     platform?: "tiktok" | "xhs" | "wechat" | "youtube" | "generic";
     language?: "zh-CN" | "en-US";
-    duration_seconds?: 60 | 75 | 90;
+    target_chars?: number;
     format?: "voice_over" | "on_camera" | "mixed" | "unspecified";
     cta_required?: boolean;
   };
@@ -27,17 +79,25 @@ export function buildHumanScriptWithEvidencePrompt(params: {
   const {
     platform = "generic",
     language = "zh-CN",
-    duration_seconds = 75,
+    target_chars = 600,
     format = "unspecified",
     cta_required = true,
   } = constraints;
+
+  const targetChars = Math.min(target_chars, 2000)
 
   const system = `
 You are a professional short-form video scriptwriter.
 
 Your task:
-Write a ${duration_seconds}-second script that sounds like the creator described in the persona JSON,
+Write a script that sounds like the creator described in the persona JSON,
 and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
+
+LENGTH REQUIREMENT for PART 1 only (mandatory — do not deviate):
+- PART 1 (the script) must be approximately ${targetChars} Chinese characters (or equivalent words if in English).
+- Do NOT stop early. Do NOT exceed ${Math.round(targetChars * 1.1)} characters in PART 1.
+- A PART 1 shorter than ${Math.round(targetChars * 0.85)} characters is unacceptable.
+- PART 2 (Evidence Used) is not counted toward this limit.
 
 IMPORTANT RULES:
 
@@ -71,7 +131,7 @@ Evidence Used:
 - Platform: ${platform}
 - Format: ${format}
 - Tone must match personaJson.voice_style.tone
-- Keep pacing appropriate for ${duration_seconds}s
+- Keep pacing natural and consistent throughout — target ~${targetChars} Chinese characters
 
 4) CTA:
 - If cta_required=${cta_required}, include subtle CTA aligned with personaJson.growth.cta_style.
@@ -81,7 +141,7 @@ Do NOT mention persona, JSON, transcript, or prompt.
   `.trim();
 
   const user = `
-TOPIC BRIEF:
+EXTRA INSTRUCTIONS:
 ${topicBrief}
 
 PERSONA JSON:
