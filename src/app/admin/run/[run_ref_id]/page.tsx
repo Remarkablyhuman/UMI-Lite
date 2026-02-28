@@ -313,15 +313,17 @@ export default function AdminRunPage() {
         <Section title="脚本">
           {openTask?.type === 'REVIEW_REFERENCE' && (reference.status === 'SUBMITTED' || reference.status === 'PARSED') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={generateScript}
-                  disabled={generating}
-                  style={{ padding: '6px 18px', fontSize: 17, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer' }}
-                >
-                  {generating ? 'AI 生成中...' : 'AI 生成脚本'}
-                </button>
-              </div>
+              {reference.status === 'PARSED' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={generateScript}
+                    disabled={generating}
+                    style={{ padding: '6px 18px', fontSize: 17, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer' }}
+                  >
+                    {generating ? 'AI 生成中...' : 'AI 生成脚本'}
+                  </button>
+                </div>
+              )}
               <textarea
                 placeholder="输入脚本内容..."
                 value={scriptText}
@@ -377,9 +379,9 @@ export default function AdminRunPage() {
         <Section title="操作">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {reference.status === 'SUBMITTED' && (
-              <ActionBtn label="标记参考素材已解析" onClick={() => action(markParsed)} />
+              <ActionBtn label="参考素材已解析" onClick={() => action(markParsed)} />
             )}
-            {(reference.status === 'SUBMITTED' || reference.status === 'PARSED') && openTask?.type === 'REVIEW_REFERENCE' && (
+            {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
               <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
             )}
             {script && script.status === 'DRAFT' && openTask?.type === 'REVIEW_SCRIPT' && (
