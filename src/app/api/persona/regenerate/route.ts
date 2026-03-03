@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     // Generate persona via OpenAI
     const prompt = buildPersonaPrompt(kbEntries)
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.1',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       response_format: { type: 'json_object' },

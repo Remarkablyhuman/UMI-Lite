@@ -38,7 +38,7 @@ export default function EditorInbox() {
         .from('tasks')
         .select('id, type, status, script_id, reference_id')
         .eq('assignee_id', user.id)
-        .eq('status', 'OPEN')
+        .in('status', ['OPEN', 'DONE'])
         .order('created_at', { ascending: false })
 
       const taskList = (data ?? []) as Task[]
@@ -77,25 +77,53 @@ export default function EditorInbox() {
           </button>
         </div>
 
-        {tasks.length === 0
-          ? <p style={{ fontSize: 20, color: '#555' }}>暂无分配给你的任务。</p>
-          : tasks.map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
-              <div>
-                <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
-                <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>{t.type}</span>
+        {tasks.filter(t => t.status === 'OPEN').length === 0 && tasks.filter(t => t.status === 'DONE').length === 0 && (
+          <p style={{ fontSize: 20, color: '#555' }}>暂无分配给你的任务。</p>
+        )}
+
+        {tasks.filter(t => t.status === 'OPEN').length > 0 && (
+          <>
+            <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12 }}>待办</p>
+            {tasks.filter(t => t.status === 'OPEN').map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+                <div>
+                  <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
+                  <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>{t.type}</span>
+                </div>
+                {t.type === 'EDIT_VIDEO' && t.script_id && (
+                  <button
+                    onClick={() => router.push(`/editor/edit/${t.script_id}`)}
+                    style={{ fontSize: 18, padding: '6px 15px', cursor: 'pointer', background: '#f0f0f0', color: '#111', border: 'none' }}
+                  >
+                    去剪辑
+                  </button>
+                )}
               </div>
-              {t.type === 'EDIT_VIDEO' && t.script_id && (
-                <button
-                  onClick={() => router.push(`/editor/edit/${t.script_id}`)}
-                  style={{ fontSize: 18, padding: '6px 15px', cursor: 'pointer', background: '#f0f0f0', color: '#111', border: 'none' }}
-                >
-                  去剪辑
-                </button>
-              )}
-            </div>
-          ))
-        }
+            ))}
+          </>
+        )}
+
+        {tasks.filter(t => t.status === 'DONE').length > 0 && (
+          <>
+            <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12, marginTop: 48 }}>已完成</p>
+            {tasks.filter(t => t.status === 'DONE').map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+                <div>
+                  <span style={{ fontSize: 20, fontWeight: 600, color: '#555' }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
+                  <span style={{ fontSize: 18, color: '#444', marginLeft: 18 }}>{t.type}</span>
+                </div>
+                {t.reference_id && runRefMap[t.reference_id] && (
+                  <button
+                    onClick={() => router.push(`/admin/run/${runRefMap[t.reference_id]}`)}
+                    style={{ fontSize: 16, padding: '4px 14px', cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', color: '#888' }}
+                  >
+                    查看
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )

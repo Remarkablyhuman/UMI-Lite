@@ -24,6 +24,7 @@ type Deliverable = {
   id: string
   script_id: string
   type: 'raw' | 'final'
+  storage_path: string | null
   baidu_share_url: string
   baidu_extract_code: string | null
   file_label: string | null
@@ -59,6 +60,7 @@ export default function AdminRunPage() {
   const [scriptText, setScriptText] = useState('')
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([])
   const [selectedEditorId, setSelectedEditorId] = useState('')
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionMsg, setActionMsg] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -70,6 +72,12 @@ export default function AdminRunPage() {
   const [genPart2, setGenPart2] = useState('')
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setUserRole(prof?.role ?? null)
+    }
+
     const { data: ref } = await supabase
       .from('references')
       .select('id, run_ref_id, url, status, parsed_json')
@@ -91,7 +99,7 @@ export default function AdminRunPage() {
     const { data: dels } = sc
       ? await supabase
           .from('deliverables')
-          .select('id, script_id, type, baidu_share_url, baidu_extract_code, file_label')
+          .select('id, script_id, type, storage_path, baidu_share_url, baidu_extract_code, file_label')
           .eq('script_id', sc.id)
           .order('created_at', { ascending: true })
       : { data: [] }
@@ -193,16 +201,18 @@ export default function AdminRunPage() {
   async function approveReference() {
     if (selectedGuestIds.length === 0) { setActionMsg('请先选择达人。'); return }
 
+    const finalScriptText = genPart1.trim() || scriptText.trim()
+    if (!finalScriptText) { setActionMsg('请先输入脚本内容。'); return }
+
     let scriptId = script?.id
 
     if (!scriptId) {
-      if (!scriptText.trim()) { setActionMsg('请先输入脚本内容。'); return }
       const { data: newScript, error } = await supabase
         .from('scripts')
         .insert({
           reference_id: reference!.id,
           guest_id: selectedGuestIds[0],
-          script_text: scriptText.trim(),
+          script_text: finalScriptText,
           status: 'DRAFT',
         })
         .select('id')
@@ -210,7 +220,7 @@ export default function AdminRunPage() {
       if (error || !newScript) { setActionMsg(error?.message ?? 'Failed to create script'); return }
       scriptId = newScript.id
     } else {
-      await supabase.from('scripts').update({ script_text: scriptText.trim(), guest_id: selectedGuestIds[0] }).eq('id', scriptId)
+      await supabase.from('scripts').update({ script_text: finalScriptText, guest_id: selectedGuestIds[0] }).eq('id', scriptId)
     }
 
     await supabase.from('references').update({ status: 'APPROVED' }).eq('id', reference!.id)
@@ -360,10 +370,11 @@ export default function AdminRunPage() {
                     <input
                       type="number"
                       value={genTargetChars}
-                      onChange={e => setGenTargetChars(Math.min(2000, Math.max(1, Number(e.target.value))))}
+                      onChange={e => setGenTargetChars(Math.min(2000, Math.max(100, Number(e.target.value))))}
                       placeholder="目标字数"
-                      
+                      min={100}
                       max={2000}
+                      step={100}
                       style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
                     />
                     <select
@@ -442,7 +453,7 @@ export default function AdminRunPage() {
           {final ? <DeliverableRow label="成片" d={final} /> : <p style={{ fontSize: 20, color: '#555', marginTop: 12 }}>暂无成片。</p>}
         </Section>
 
-        <Section title="任务进度">
+        {userRole === 'admin' && <Section title="任务进度">
           {tasks.length === 0
             ? <p style={{ fontSize: 20, color: '#555' }}>暂无任务。</p>
             : tasks.map(t => (
@@ -452,9 +463,9 @@ export default function AdminRunPage() {
               </div>
             ))
           }
-        </Section>
+        </Section>}
 
-        <Section title="操作">
+        {userRole === 'admin' && <Section title="操作">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {reference.status === 'SUBMITTED' && (
               <ActionBtn label="参考素材已解析" onClick={() => action(markParsed)} />
@@ -494,7 +505,7 @@ export default function AdminRunPage() {
             )}
           </div>
           {actionMsg && <p style={{ fontSize: 20, color: '#4ade80', marginTop: 18 }}>{actionMsg}</p>}
-        </Section>
+        </Section>}
       </div>
     </div>
   )
@@ -544,12 +555,66 @@ function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
+  const supabase = createClient()
+  const [loadingUrl, setLoadingUrl] = useState(false)
+  const [loadingDownload, setLoadingDownload] = useState(false)
+
+  async function openSignedUrl() {
+    if (!d.storage_path) return
+    setLoadingUrl(true)
+    const { data, error } = await supabase.storage
+      .from('videos')
+      .createSignedUrl(d.storage_path, 3600)
+    setLoadingUrl(false)
+    if (error || !data?.signedUrl) { alert('无法生成访问链接：' + (error?.message ?? '')); return }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  async function downloadFile() {
+    if (!d.storage_path) return
+    setLoadingDownload(true)
+    const { data, error } = await supabase.storage
+      .from('videos')
+      .createSignedUrl(d.storage_path, 3600)
+    if (error || !data?.signedUrl) { setLoadingDownload(false); alert('无法生成下载链接：' + (error?.message ?? '')); return }
+    const res = await fetch(data.signedUrl)
+    const blob = await res.blob()
+    setLoadingDownload(false)
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = d.file_label ?? d.storage_path.split('/').pop() ?? 'video'
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  }
+
   return (
-    <div style={{ padding: '12px 0', borderBottom: '1px solid #1e1e1e' }}>
-      <span style={{ fontSize: 18, fontWeight: 600, marginRight: 18, color: '#888' }}>{label}</span>
-      <span style={{ fontSize: 20 }}>{d.file_label} — </span>
-      <a href={d.baidu_share_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 20, color: '#60a5fa' }}>{d.baidu_share_url}</a>
-      {d.baidu_extract_code && <span style={{ fontSize: 18, color: '#555', marginLeft: 12 }}>Code: {d.baidu_extract_code}</span>}
+    <div style={{ padding: '12px 0', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 18, fontWeight: 600, color: '#888' }}>{label}</span>
+      <span style={{ fontSize: 20 }}>{d.file_label}</span>
+      {d.storage_path ? (
+        <>
+          <button
+            onClick={openSignedUrl}
+            disabled={loadingUrl}
+            style={{ fontSize: 18, padding: '4px 14px', background: '#1a1a1a', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingUrl ? 'wait' : 'pointer' }}
+          >
+            {loadingUrl ? '生成中…' : '查看'}
+          </button>
+          <button
+            onClick={downloadFile}
+            disabled={loadingDownload}
+            style={{ fontSize: 18, padding: '4px 14px', background: '#1a1a1a', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingDownload ? 'wait' : 'pointer' }}
+          >
+            {loadingDownload ? '生成中…' : '下载'}
+          </button>
+        </>
+      ) : (
+        <>
+          <a href={d.baidu_share_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 20, color: '#60a5fa' }}>{d.baidu_share_url}</a>
+          {d.baidu_extract_code && <span style={{ fontSize: 18, color: '#555' }}>Code: {d.baidu_extract_code}</span>}
+        </>
+      )}
     </div>
   )
 }
