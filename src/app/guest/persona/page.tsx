@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -238,6 +238,10 @@ export default function GuestPersonaPage() {
   const [kbSubmitting, setKbSubmitting] = useState(false)
   const [kbMsg, setKbMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [transcribing, setTranscribing] = useState(false)
+  const audioInputRef = useRef<HTMLInputElement>(null)
+
   const [kbEntries, setKbEntries] = useState<KbEntry[]>([])
   const [activePersona, setActivePersona] = useState<ActivePersona | null>(null)
   const [versions, setVersions] = useState<VersionRow[]>([])
@@ -290,6 +294,21 @@ export default function GuestPersonaPage() {
     }
     init()
   }, [])
+
+  async function handleTranscribe() {
+    if (!audioFile) return
+    setTranscribing(true)
+    setKbMsg(null)
+    const fd = new FormData()
+    fd.append('file', audioFile)
+    const res = await fetch('/api/kb/transcribe', { method: 'POST', body: fd })
+    const json = await res.json()
+    setTranscribing(false)
+    if (!res.ok) { setKbMsg({ ok: false, text: json.error ?? '转录失败' }); return }
+    setRawText(prev => prev ? prev + '\n\n' + json.text : json.text)
+    setAudioFile(null)
+    if (audioInputRef.current) audioInputRef.current.value = ''
+  }
 
   async function handleKbSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -412,6 +431,34 @@ export default function GuestPersonaPage() {
                 <option key={st.value} value={st.value}>{st.label}</option>
               ))}
             </select>
+
+            {/* Audio upload */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <input
+                ref={audioInputRef}
+                type="file"
+                accept="audio/*"
+                style={{ display: 'none' }}
+                onChange={e => setAudioFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => audioInputRef.current?.click()}
+                style={{ padding: '8px 18px', fontSize: 17, background: '#1a1a1a', color: '#888', border: '1px solid #2a2a2a', cursor: 'pointer' }}
+              >
+                {audioFile ? audioFile.name : '上传音频文件（可选）'}
+              </button>
+              {audioFile && (
+                <button
+                  type="button"
+                  onClick={handleTranscribe}
+                  disabled={transcribing}
+                  style={{ padding: '8px 18px', fontSize: 17, background: '#1a1a1a', color: transcribing ? '#555' : '#6ee7b7', border: '1px solid #2a2a2a', cursor: transcribing ? 'wait' : 'pointer' }}
+                >
+                  {transcribing ? '转录中…' : '转录为文字'}
+                </button>
+              )}
+            </div>
 
             <div style={{ position: 'relative' }}>
               <textarea
