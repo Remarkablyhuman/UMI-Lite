@@ -86,13 +86,17 @@ export function buildHumanScriptWithEvidencePrompt(params: {
 
   const targetChars = Math.min(target_chars, 2000)
 
+  const extraBlock = topicBrief?.trim()
+    ? `\nCRITICAL — EXTRA INSTRUCTIONS (highest priority, override style defaults if needed):\n${topicBrief.trim()}\n`
+    : '';
+
   const system = `
 You are a professional short-form video scriptwriter.
 
 Your task:
 Write a script that sounds like the creator described in the persona JSON,
 and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
-
+${extraBlock}
 LENGTH REQUIREMENT for PART 1 only (mandatory — do not deviate):
 - PART 1 (the script) must be approximately ${targetChars} Chinese characters (or equivalent words if in English).
 - Do NOT stop early. Do NOT exceed ${Math.round(targetChars * 1.1)} characters in PART 1.
@@ -141,8 +145,8 @@ Do NOT mention persona, JSON, transcript, or prompt.
   `.trim();
 
   const user = `
-EXTRA INSTRUCTIONS:
-${topicBrief}
+EXTRA INSTRUCTIONS (MUST follow — these take priority over all defaults below):
+${topicBrief || '(none)'}
 
 PERSONA JSON:
 ${JSON.stringify(personaJson)}

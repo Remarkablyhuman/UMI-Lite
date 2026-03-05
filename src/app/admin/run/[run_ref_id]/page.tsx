@@ -365,7 +365,13 @@ export default function AdminRunPage() {
               </button>
               {reference.status === 'PARSED' && (
                 <>
-                  <input type="hidden" value={extraInstructions} onChange={e => setExtraInstructions(e.target.value)} />
+                  <textarea
+                    placeholder="追加说明（可选）：例如「语气轻松一点」「强调产品差异化」"
+                    value={extraInstructions}
+                    onChange={e => setExtraInstructions(e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 18, padding: 12, background: '#111', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical' }}
+                  />
                   <div style={{ display: 'flex', gap: 12 }}>
                     <input
                       type="number"

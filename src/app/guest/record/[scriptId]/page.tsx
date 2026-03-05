@@ -30,6 +30,11 @@ export default function GuestRecordPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [currentScriptText, setCurrentScriptText] = useState('')
+  const [guestComment, setGuestComment] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [aiDraft, setAiDraft] = useState<string | null>(null)
+  const [savingScript, setSavingScript] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -43,6 +48,7 @@ export default function GuestRecordPage() {
         .eq('id', scriptId)
         .single()
       setScript((sc as Script) ?? null)
+      setCurrentScriptText(sc?.script_text ?? '')
 
       const { data: task } = await supabase
         .from('tasks')
@@ -69,6 +75,47 @@ export default function GuestRecordPage() {
     }
     load()
   }, [scriptId])
+
+  async function generateForGuest() {
+    if (!userId || !currentScriptText) return
+    setGenerating(true)
+    setAiDraft(null)
+
+    const { data: personaRow } = await supabase
+      .from('guest_profiles')
+      .select('profile_data')
+      .eq('guest_id', userId)
+      .maybeSingle()
+
+    const res = await fetch('/api/generate-script', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referenceTranscript: currentScriptText,
+        extraInstructions: guestComment,
+        personaJson: personaRow?.profile_data ?? {},
+        constraints: { target_chars: 600, platform: 'wechat', format: 'voice_over' },
+      }),
+    })
+    const data = await res.json()
+    setGenerating(false)
+    if (data.error) { setError('AI 生成失败：' + data.error); return }
+    setAiDraft(data.part1 ?? null)
+  }
+
+  async function approveAiScript() {
+    if (!aiDraft) return
+    setSavingScript(true)
+    const { error: updateErr } = await supabase
+      .from('scripts')
+      .update({ script_text: aiDraft })
+      .eq('id', scriptId)
+    setSavingScript(false)
+    if (updateErr) { setError(updateErr.message); return }
+    setCurrentScriptText(aiDraft)
+    setAiDraft(null)
+    setGuestComment('')
+  }
 
   async function openRawUrl() {
     if (!rawStoragePath) return
@@ -149,8 +196,55 @@ export default function GuestRecordPage() {
         <p style={{ fontSize: 18, color: '#555', marginBottom: 48 }}>{taskDone ? '已完成录制。' : '请对照以下脚本录制视频，完成后上传视频文件。'}</p>
 
         <div style={{ background: '#000', color: '#f0f0f0', padding: 48, marginBottom: 60, fontSize: 30, lineHeight: 2, whiteSpace: 'pre-wrap', border: '1px solid #2a2a2a' }}>
-          {script.script_text ?? ''}
+          {currentScriptText}
         </div>
+
+        {!taskDone && (
+          <div style={{ marginBottom: 48, border: '1px solid #2a2a2a', background: '#1a1a1a', padding: '24px' }}>
+            <p style={{ fontSize: 17, color: '#444', textTransform: 'uppercase', letterSpacing: 3, marginBottom: 18 }}>AI 润色脚本</p>
+            <textarea
+              placeholder="追加说明（可选）：例如「语气轻松一点」「加入我健身背景」"
+              value={guestComment}
+              onChange={e => setGuestComment(e.target.value)}
+              rows={3}
+              style={{ width: '100%', boxSizing: 'border-box', fontSize: 18, padding: 12, background: '#111', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical', marginBottom: 12 }}
+            />
+            <button
+              type="button"
+              onClick={generateForGuest}
+              disabled={generating}
+              style={{ fontSize: 18, padding: '9px 24px', background: '#111', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: generating ? 'wait' : 'pointer' }}
+            >
+              {generating ? 'AI 生成中…' : 'AI 生成'}
+            </button>
+
+            {aiDraft && (
+              <div style={{ marginTop: 24 }}>
+                <p style={{ fontSize: 16, color: '#555', marginBottom: 8 }}>生成结果 <span style={{ color: '#444' }}>({aiDraft.trim().length} 字)</span></p>
+                <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#000', color: '#f0f0f0', padding: 24, lineHeight: 1.8, border: '1px solid #2a2a2a', marginBottom: 12 }}>
+                  {aiDraft}
+                </pre>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={approveAiScript}
+                    disabled={savingScript}
+                    style={{ fontSize: 18, padding: '9px 24px', background: '#f0f0f0', color: '#111', border: 'none', cursor: savingScript ? 'wait' : 'pointer' }}
+                  >
+                    {savingScript ? '保存中…' : '确认保存'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiDraft(null)}
+                    style={{ fontSize: 18, padding: '9px 24px', background: '#111', color: '#888', border: '1px solid #2a2a2a', cursor: 'pointer' }}
+                  >
+                    放弃
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {taskDone ? (
           <div>
