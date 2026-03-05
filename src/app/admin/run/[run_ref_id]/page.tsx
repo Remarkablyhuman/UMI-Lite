@@ -63,6 +63,7 @@ export default function AdminRunPage() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionMsg, setActionMsg] = useState('')
+  const [rejectComment, setRejectComment] = useState('')
   const [generating, setGenerating] = useState(false)
   const [extraInstructions, setExtraInstructions] = useState('')
   const [genTargetChars, setGenTargetChars] = useState(600)
@@ -303,6 +304,31 @@ export default function AdminRunPage() {
     setActionMsg('成片审核任务已创建。')
   }
 
+  async function rejectFinalCut() {
+    if (!rejectComment.trim()) { setActionMsg('请填写驳回说明。'); return }
+
+    const editTask = [...tasks].reverse().find(t => t.type === 'EDIT_VIDEO' && t.status === 'DONE')
+    if (!editTask?.assignee_id) { setActionMsg('找不到剪辑师信息。'); return }
+
+    const reviewTask = tasks.find(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'OPEN')
+    if (reviewTask) {
+      await supabase.from('tasks').update({ status: 'DONE' }).eq('id', reviewTask.id)
+    }
+
+    await supabase.from('tasks').insert({
+      type: 'EDIT_VIDEO',
+      status: 'OPEN',
+      reference_id: reference!.id,
+      script_id: script!.id,
+      assignee_id: editTask.assignee_id,
+      assignee_role: 'editor',
+      comment: rejectComment.trim(),
+    })
+
+    setRejectComment('')
+    setActionMsg('已驳回，返工任务已发送给剪辑师。')
+  }
+
   async function approveFinalCut() {
     const reviewTask = tasks.find(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'OPEN')
     if (reviewTask) {
@@ -322,8 +348,9 @@ export default function AdminRunPage() {
   const final = deliverables.find(d => d.type === 'final')
   const recordDone = tasks.some(t => t.type === 'RECORD_VIDEO' && t.status === 'DONE')
   const editTaskExists = tasks.some(t => t.type === 'EDIT_VIDEO')
-  const editDone = tasks.some(t => t.type === 'EDIT_VIDEO' && t.status === 'DONE')
-  const reviewFinalExists = tasks.some(t => t.type === 'REVIEW_FINAL_CUT')
+  const editDone = !tasks.some(t => t.type === 'EDIT_VIDEO' && t.status === 'OPEN')
+                && tasks.some(t => t.type === 'EDIT_VIDEO' && t.status === 'DONE')
+  const reviewFinalExists = tasks.some(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'OPEN')
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
@@ -504,7 +531,22 @@ export default function AdminRunPage() {
               <ActionBtn label="创建成片审核任务" onClick={() => action(createReviewFinalCutTask)} />
             )}
             {openTask?.type === 'REVIEW_FINAL_CUT' && final && (
-              <ActionBtn label="审核通过成片" onClick={() => action(approveFinalCut)} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <ActionBtn label="审核通过成片" onClick={() => action(approveFinalCut)} />
+                <textarea
+                  placeholder="驳回说明（必填）：例如「片头太长，请剪到5秒内」"
+                  value={rejectComment}
+                  onChange={e => setRejectComment(e.target.value)}
+                  rows={3}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 18, padding: 12, background: '#111', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical' }}
+                />
+                <button
+                  onClick={() => action(rejectFinalCut)}
+                  style={{ padding: '12px 24px', fontSize: 20, fontWeight: 600, background: '#111', color: '#f87171', border: '1px solid #f87171', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  驳回并退回剪辑
+                </button>
+              </div>
             )}
             {!openTask && tasks.length > 0 && script?.status === 'DONE' && (
               <p style={{ fontSize: 20, color: '#4ade80' }}>本次任务已完成。</p>

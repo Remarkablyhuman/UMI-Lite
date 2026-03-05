@@ -10,6 +10,7 @@ type Task = {
   status: string
   script_id: string | null
   reference_id: string | null
+  comment: string | null
 }
 
 export default function EditorInbox() {
@@ -36,7 +37,7 @@ export default function EditorInbox() {
 
       const { data } = await supabase
         .from('tasks')
-        .select('id, type, status, script_id, reference_id')
+        .select('id, type, status, script_id, reference_id, comment')
         .eq('assignee_id', user.id)
         .in('status', ['OPEN', 'DONE'])
         .order('created_at', { ascending: false })
@@ -88,6 +89,7 @@ export default function EditorInbox() {
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
+                  {t.comment && <span style={{ fontSize: 15, color: '#f87171', marginLeft: 8 }}>(返工)</span>}
                   <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>{t.type}</span>
                 </div>
                 {t.type === 'EDIT_VIDEO' && t.script_id && (

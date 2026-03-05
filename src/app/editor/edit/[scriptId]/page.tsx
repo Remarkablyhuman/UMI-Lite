@@ -17,6 +17,7 @@ export default function EditorEditPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [taskDone, setTaskDone] = useState(false)
+  const [taskComment, setTaskComment] = useState<string | null>(null)
   const [scriptText, setScriptText] = useState<string | null>(null)
   const [rawStoragePath, setRawStoragePath] = useState<string | null>(null)
   const [rawFileLabel, setRawFileLabel] = useState<string | null>(null)
@@ -34,15 +35,16 @@ export default function EditorEditPage() {
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
 
-      const { data: task } = await supabase
+      const { data: taskRows } = await supabase
         .from('tasks')
-        .select('id, status')
+        .select('id, status, comment')
         .eq('script_id', scriptId)
         .eq('type', 'EDIT_VIDEO')
         .eq('assignee_id', user.id)
-        .maybeSingle()
+        .order('created_at', { ascending: false })
 
-      if (task?.status === 'OPEN') setTaskId(task.id)
+      const task = taskRows?.[0] ?? null
+      if (task?.status === 'OPEN') { setTaskId(task.id); setTaskComment(task.comment ?? null) }
       if (task?.status === 'DONE') setTaskDone(true)
 
       const { data: sc } = await supabase
@@ -181,6 +183,13 @@ export default function EditorEditPage() {
         </button>
 
         <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 24 }}>{taskDone ? '已完成剪辑' : '提交成片'}</h1>
+
+        {taskComment && !taskDone && (
+          <div style={{ marginBottom: 36, padding: '18px 24px', background: '#1a0000', border: '1px solid #7f1d1d' }}>
+            <p style={{ fontSize: 15, color: '#f87171', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>返工说明</p>
+            <p style={{ fontSize: 20, color: '#fca5a5', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{taskComment}</p>
+          </div>
+        )}
 
         {scriptText && (
           <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#000', color: '#f0f0f0', padding: 36, marginBottom: 48, lineHeight: 1.8, border: '1px solid #2a2a2a' }}>

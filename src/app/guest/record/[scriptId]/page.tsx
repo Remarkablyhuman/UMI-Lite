@@ -195,9 +195,12 @@ export default function GuestRecordPage() {
         <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 6 }}>{script.ref?.run_ref_id ?? scriptId}</h1>
         <p style={{ fontSize: 18, color: '#555', marginBottom: 48 }}>{taskDone ? '已完成录制。' : '请对照以下脚本录制视频，完成后上传视频文件。'}</p>
 
-        <div style={{ background: '#000', color: '#f0f0f0', padding: 48, marginBottom: 60, fontSize: 30, lineHeight: 2, whiteSpace: 'pre-wrap', border: '1px solid #2a2a2a' }}>
-          {currentScriptText}
-        </div>
+        <textarea
+          value={currentScriptText}
+          onChange={e => setCurrentScriptText(e.target.value)}
+          rows={12}
+          style={{ width: '100%', boxSizing: 'border-box', background: '#000', color: '#f0f0f0', padding: 48, marginBottom: 60, fontSize: 30, lineHeight: 2, border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical' }}
+        />
 
         {!taskDone && (
           <div style={{ marginBottom: 48, border: '1px solid #2a2a2a', background: '#1a1a1a', padding: '24px' }}>
