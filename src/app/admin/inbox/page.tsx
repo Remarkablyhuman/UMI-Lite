@@ -56,7 +56,7 @@ export default function AdminInbox() {
     // Build progress map: refId → { taskType → 'DONE' | 'OPEN' }
     const map: Record<string, RefProgress> = {}
     for (const t of tasks ?? []) {
-      const refId = (t.reference_id ?? (t.script as { reference_id: string } | null)?.reference_id) as string | null
+      const refId = (t.reference_id ?? (t.script as unknown as { reference_id: string } | null)?.reference_id) as string | null
       if (!refId) continue
       if (!map[refId]) map[refId] = {}
       const current = map[refId][t.type]
