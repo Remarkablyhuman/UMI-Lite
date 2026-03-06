@@ -70,6 +70,7 @@ export default function EditorInbox() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
+      <div></div>
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
           <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 剪辑任务</h1>
