@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+export const dynamic = 'force-dynamic'
+
 const SOURCE_TYPES = [
   { value: 'self_intro', label: '自我介绍' },
   { value: 'interview', label: '访谈记录' },
