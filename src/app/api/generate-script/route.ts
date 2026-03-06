@@ -116,13 +116,22 @@ PART 1 — The Script:
 - Use line breaks for pacing.
 - Strong hook → 2–3 key ideas → closing → CTA (if required).
 
-PART 2 — Evidence Used:
+PART 2 — Evidence Used + Script Overview:
 After the script, add:
 ---
 Evidence Used:
 - 3–8 short phrases or sentence patterns reused or closely paraphrased from the reference transcript
 - List 3 anchor keywords from personaJson.voice_style.anchor_keywords that were included
 - Confirm "No disallowed claims used"
+
+Script Summary:
+(1–2 sentences summarising the script's core message and angle)
+
+Key Points:
+- (main idea 1)
+- (main idea 2)
+- (main idea 3)
+[up to 5 bullet points reflecting the main ideas in the script]
 
 2) Grounding rules:
 - You MUST reuse or closely paraphrase at least 3 phrases from the reference transcript.
