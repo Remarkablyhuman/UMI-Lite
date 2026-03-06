@@ -341,7 +341,7 @@ export default function AdminRunPage() {
   if (!reference) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Run not found.</div>
 
   const openTask = tasks.find(t => t.status === 'OPEN')
-  const raw = deliverables.find(d => d.type === 'raw')
+  const raws = deliverables.filter(d => d.type === 'raw')
   const final = deliverables.find(d => d.type === 'final')
   const recordDone = tasks.some(t => t.type === 'RECORD_VIDEO' && t.status === 'DONE')
   const editTaskExists = tasks.some(t => t.type === 'EDIT_VIDEO')
@@ -479,7 +479,9 @@ export default function AdminRunPage() {
         </Section>
 
         <Section title="视频文件">
-          {raw ? <DeliverableRow label="原片" d={raw} /> : <p style={{ fontSize: 20, color: '#555' }}>暂无原片。</p>}
+          {raws.length > 0
+            ? raws.map((d, i) => <DeliverableRow key={d.id} label={raws.length > 1 ? `原片 ${i + 1}` : '原片'} d={d} />)
+            : <p style={{ fontSize: 20, color: '#555' }}>暂无原片。</p>}
           {final ? <DeliverableRow label="成片" d={final} /> : <p style={{ fontSize: 20, color: '#555', marginTop: 12 }}>暂无成片。</p>}
         </Section>
 

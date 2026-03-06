@@ -19,10 +19,8 @@ export default function EditorEditPage() {
   const [taskDone, setTaskDone] = useState(false)
   const [taskComment, setTaskComment] = useState<string | null>(null)
   const [scriptText, setScriptText] = useState<string | null>(null)
-  const [rawStoragePath, setRawStoragePath] = useState<string | null>(null)
-  const [rawFileLabel, setRawFileLabel] = useState<string | null>(null)
-  const [loadingRawUrl, setLoadingRawUrl] = useState(false)
-  const [loadingRawDownload, setLoadingRawDownload] = useState(false)
+  const [rawDeliverables, setRawDeliverables] = useState<{ storage_path: string; file_label: string | null }[]>([])
+  const [loadingRawIdx, setLoadingRawIdx] = useState<{ idx: number; action: 'view' | 'dl' } | null>(null)
   const [finalStoragePath, setFinalStoragePath] = useState<string | null>(null)
   const [finalFileLabel, setFinalFileLabel] = useState<string | null>(null)
   const [loadingFinalUrl, setLoadingFinalUrl] = useState(false)
@@ -54,14 +52,13 @@ export default function EditorEditPage() {
         .single()
       setScriptText(sc?.script_text ?? null)
 
-      const { data: rawDel } = await supabase
+      const { data: rawDels } = await supabase
         .from('deliverables')
         .select('storage_path, file_label')
         .eq('script_id', scriptId)
         .eq('type', 'raw')
-        .maybeSingle()
-      setRawStoragePath(rawDel?.storage_path ?? null)
-      setRawFileLabel(rawDel?.file_label ?? null)
+        .order('created_at', { ascending: true })
+      setRawDeliverables(rawDels ?? [])
 
       if (task?.status === 'DONE') {
         const { data: finalDel } = await supabase
@@ -79,31 +76,25 @@ export default function EditorEditPage() {
     load()
   }, [scriptId])
 
-  async function openRawUrl() {
-    if (!rawStoragePath) return
-    setLoadingRawUrl(true)
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(rawStoragePath, 3600)
-    setLoadingRawUrl(false)
+  async function openRawUrl(storagePath: string, idx: number) {
+    setLoadingRawIdx({ idx, action: 'view' })
+    const { data, error } = await supabase.storage.from('videos').createSignedUrl(storagePath, 3600)
+    setLoadingRawIdx(null)
     if (error || !data?.signedUrl) { setError('无法生成链接：' + (error?.message ?? '')); return }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
-  async function downloadRawFile() {
-    if (!rawStoragePath) return
-    setLoadingRawDownload(true)
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(rawStoragePath, 3600)
-    if (error || !data?.signedUrl) { setLoadingRawDownload(false); setError('无法生成下载链接：' + (error?.message ?? '')); return }
+  async function downloadRawFile(storagePath: string, fileLabel: string | null, idx: number) {
+    setLoadingRawIdx({ idx, action: 'dl' })
+    const { data, error } = await supabase.storage.from('videos').createSignedUrl(storagePath, 3600)
+    if (error || !data?.signedUrl) { setLoadingRawIdx(null); setError('无法生成下载链接：' + (error?.message ?? '')); return }
     const res = await fetch(data.signedUrl)
     const blob = await res.blob()
-    setLoadingRawDownload(false)
+    setLoadingRawIdx(null)
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
-    a.download = rawFileLabel ?? rawStoragePath.split('/').pop() ?? 'video'
+    a.download = fileLabel ?? storagePath.split('/').pop() ?? 'video'
     a.click()
     URL.revokeObjectURL(blobUrl)
   }
@@ -199,43 +190,66 @@ export default function EditorEditPage() {
 
         {taskDone ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {[
-              { label: '原片', path: rawStoragePath, fileLabel: rawFileLabel, loadingView: loadingRawUrl, loadingDl: loadingRawDownload, onView: openRawUrl, onDownload: downloadRawFile },
-              { label: '成片', path: finalStoragePath, fileLabel: finalFileLabel, loadingView: loadingFinalUrl, loadingDl: loadingFinalDownload, onView: openFinalUrl, onDownload: downloadFinalFile },
-            ].map(({ label, path, fileLabel: fl, loadingView: lv, loadingDl: ld, onView, onDownload }) => (
-              <div key={label} style={{ padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
-                <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>{label}</p>
-                {path ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                    <span style={{ fontSize: 20, flex: 1 }}>{fl ?? path}</span>
-                    <button type="button" onClick={onView} disabled={lv} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: lv ? 'wait' : 'pointer' }}>
-                      {lv ? '生成中…' : '查看'}
+            <div style={{ padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
+              <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>原片</p>
+              {rawDeliverables.length > 0 ? rawDeliverables.map((d, i) => {
+                const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
+                const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
+                    <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? d.storage_path.split('/').pop()}</span>
+                    <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
+                      style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
+                      {isViewing ? '生成中…' : '查看'}
                     </button>
-                    <button type="button" onClick={onDownload} disabled={ld} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: ld ? 'wait' : 'pointer' }}>
-                      {ld ? '生成中…' : '下载'}
+                    <button type="button" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}
+                      style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: isDling ? 'wait' : 'pointer' }}>
+                      {isDling ? '生成中…' : '下载'}
                     </button>
                   </div>
-                ) : (
-                  <p style={{ fontSize: 20, color: '#555' }}>暂无记录。</p>
-                )}
-              </div>
-            ))}
+                )
+              }) : <p style={{ fontSize: 20, color: '#555' }}>暂无记录。</p>}
+            </div>
+            <div style={{ padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
+              <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>成片</p>
+              {finalStoragePath ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                  <span style={{ fontSize: 20, flex: 1 }}>{finalFileLabel ?? finalStoragePath}</span>
+                  <button type="button" onClick={openFinalUrl} disabled={loadingFinalUrl} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingFinalUrl ? 'wait' : 'pointer' }}>
+                    {loadingFinalUrl ? '生成中…' : '查看'}
+                  </button>
+                  <button type="button" onClick={downloadFinalFile} disabled={loadingFinalDownload} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingFinalDownload ? 'wait' : 'pointer' }}>
+                    {loadingFinalDownload ? '生成中…' : '下载'}
+                  </button>
+                </div>
+              ) : (
+                <p style={{ fontSize: 20, color: '#555' }}>暂无记录。</p>
+              )}
+            </div>
             {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
           </div>
         ) : (
           <>
-            {rawStoragePath && (
+            {rawDeliverables.length > 0 && (
               <div style={{ marginBottom: 36, padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
                 <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>原片</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <span style={{ fontSize: 20 }}>{rawFileLabel ?? rawStoragePath}</span>
-                  <button type="button" onClick={openRawUrl} disabled={loadingRawUrl} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingRawUrl ? 'wait' : 'pointer' }}>
-                    {loadingRawUrl ? '生成中…' : '查看'}
-                  </button>
-                  <button type="button" onClick={downloadRawFile} disabled={loadingRawDownload} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingRawDownload ? 'wait' : 'pointer' }}>
-                    {loadingRawDownload ? '生成中…' : '下载'}
-                  </button>
-                </div>
+                {rawDeliverables.map((d, i) => {
+                  const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
+                  const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
+                      <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? d.storage_path.split('/').pop()}</span>
+                      <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
+                        style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
+                        {isViewing ? '生成中…' : '查看'}
+                      </button>
+                      <button type="button" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}
+                        style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: isDling ? 'wait' : 'pointer' }}>
+                        {isDling ? '生成中…' : '下载'}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )}
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

@@ -20,10 +20,8 @@ export default function GuestRecordPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [taskId, setTaskId] = useState<string | null>(null)
   const [taskDone, setTaskDone] = useState(false)
-  const [rawStoragePath, setRawStoragePath] = useState<string | null>(null)
-  const [rawFileLabel, setRawFileLabel] = useState<string | null>(null)
-  const [loadingView, setLoadingView] = useState(false)
-  const [loadingDownload, setLoadingDownload] = useState(false)
+  const [rawDeliverables, setRawDeliverables] = useState<{ storage_path: string; file_label: string | null }[]>([])
+  const [uploadMsg, setUploadMsg] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [fileLabel, setFileLabel] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -59,17 +57,15 @@ export default function GuestRecordPage() {
         .maybeSingle()
 
       if (task?.status === 'OPEN') setTaskId(task.id)
-      if (task?.status === 'DONE') {
-        setTaskDone(true)
-        const { data: rawDel } = await supabase
-          .from('deliverables')
-          .select('storage_path, file_label')
-          .eq('script_id', scriptId)
-          .eq('type', 'raw')
-          .maybeSingle()
-        setRawStoragePath(rawDel?.storage_path ?? null)
-        setRawFileLabel(rawDel?.file_label ?? null)
-      }
+      if (task?.status === 'DONE') setTaskDone(true)
+
+      const { data: dels } = await supabase
+        .from('deliverables')
+        .select('storage_path, file_label')
+        .eq('script_id', scriptId)
+        .eq('type', 'raw')
+        .order('created_at', { ascending: true })
+      setRawDeliverables(dels ?? [])
 
       setLoading(false)
     }
@@ -117,52 +113,19 @@ export default function GuestRecordPage() {
     setGuestComment('')
   }
 
-  async function openRawUrl() {
-    if (!rawStoragePath) return
-    setLoadingView(true)
-    const { data, error } = await supabase.storage.from('videos').createSignedUrl(rawStoragePath, 3600)
-    setLoadingView(false)
-    if (error || !data?.signedUrl) { setError('无法生成链接：' + (error?.message ?? '')); return }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
-  }
-
-  async function downloadRawFile() {
-    if (!rawStoragePath) return
-    setLoadingDownload(true)
-    const { data, error } = await supabase.storage.from('videos').createSignedUrl(rawStoragePath, 3600)
-    if (error || !data?.signedUrl) { setLoadingDownload(false); setError('无法生成下载链接：' + (error?.message ?? '')); return }
-    const res = await fetch(data.signedUrl)
-    const blob = await res.blob()
-    setLoadingDownload(false)
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = rawFileLabel ?? rawStoragePath.split('/').pop() ?? 'video'
-    a.click()
-    URL.revokeObjectURL(blobUrl)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
+    setUploadMsg('')
     if (!file) { setError('请选择视频文件'); return }
     if (!script || !userId) return
-
     setSubmitting(true)
 
     const timestamp = Date.now()
     const storagePath = `raw/${scriptId}/${timestamp}-${file.name}`
 
-    const { error: uploadErr } = await supabase.storage
-      .from('videos')
-      .upload(storagePath, file)
-
-    if (uploadErr) {
-      setError(uploadErr.message)
-      setSubmitting(false)
-      return
-    }
+    const { error: uploadErr } = await supabase.storage.from('videos').upload(storagePath, file)
+    if (uploadErr) { setError(uploadErr.message); setSubmitting(false); return }
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId,
@@ -172,13 +135,26 @@ export default function GuestRecordPage() {
       file_label: fileLabel.trim() || file.name,
       created_by: userId,
     })
-
     if (delErr) { setError(delErr.message); setSubmitting(false); return }
 
-    if (taskId) {
-      await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
-    }
+    const { data: dels } = await supabase
+      .from('deliverables')
+      .select('storage_path, file_label')
+      .eq('script_id', scriptId)
+      .eq('type', 'raw')
+      .order('created_at', { ascending: true })
+    setRawDeliverables(dels ?? [])
 
+    setFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    setFileLabel('')
+    setUploadMsg('原片已上传，可继续上传或点击「完成录制」。')
+    setSubmitting(false)
+  }
+
+  async function handleFinishRecording() {
+    if (!taskId) return
+    await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
     router.replace('/guest/inbox')
   }
 
@@ -249,65 +225,67 @@ export default function GuestRecordPage() {
           </div>
         )}
 
-        {taskDone ? (
-          <div>
-            <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 24 }}>已提交原片</h2>
-            {rawStoragePath ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
-                <span style={{ fontSize: 20, flex: 1 }}>{rawFileLabel ?? rawStoragePath}</span>
-                <button type="button" onClick={openRawUrl} disabled={loadingView} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingView ? 'wait' : 'pointer' }}>
-                  {loadingView ? '生成中…' : '查看'}
-                </button>
-                <button type="button" onClick={downloadRawFile} disabled={loadingDownload} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingDownload ? 'wait' : 'pointer' }}>
-                  {loadingDownload ? '生成中…' : '下载'}
-                </button>
+        {rawDeliverables.length > 0 && (
+          <div style={{ marginBottom: 36 }}>
+            <p style={{ fontSize: 15, color: '#444', textTransform: 'uppercase', letterSpacing: 3, marginBottom: 12 }}>已上传原片 ({rawDeliverables.length})</p>
+            {rawDeliverables.map((d, i) => (
+              <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid #1e1e1e', fontSize: 20, color: '#888' }}>
+                {d.file_label ?? d.storage_path.split('/').pop()}
               </div>
-            ) : (
-              <p style={{ fontSize: 20, color: '#555' }}>暂无原片记录。</p>
-            )}
-            {error && <p style={{ color: '#f87171', fontSize: 20, marginTop: 12 }}>{error}</p>}
+            ))}
           </div>
-        ) : (
+        )}
+
+        {!taskDone && (
           <>
             <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 24 }}>提交原片</h2>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <input
-            type="text"
-            placeholder="文件名备注（可选，如 EP001-原片）"
-            value={fileLabel}
-            onChange={e => setFileLabel(e.target.value)}
-            style={{ padding: '12px 18px', fontSize: 21, border: '1px solid #2a2a2a', outline: 'none', background: '#1a1a1a', color: '#f0f0f0' }}
-          />
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              padding: '24px 18px',
-              border: '2px dashed #2a2a2a',
-              background: '#1a1a1a',
-              cursor: 'pointer',
-              textAlign: 'center',
-              fontSize: 20,
-              color: file ? '#f0f0f0' : '#555',
-            }}
-          >
-            {file ? `已选择：${file.name}` : '点击选择视频文件'}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            style={{ display: 'none' }}
-            onChange={e => setFile(e.target.files?.[0] ?? null)}
-          />
-          {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting || !file}
-            style={{ padding: '15px', fontSize: 21, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: submitting || !file ? 'not-allowed' : 'pointer', opacity: submitting || !file ? 0.6 : 1 }}
-          >
-            {submitting ? '上传中…' : '提交原片'}
-          </button>
-        </form>
+              <input
+                type="text"
+                placeholder="文件名备注（可选，如 EP001-原片）"
+                value={fileLabel}
+                onChange={e => setFileLabel(e.target.value)}
+                style={{ padding: '12px 18px', fontSize: 21, border: '1px solid #2a2a2a', outline: 'none', background: '#1a1a1a', color: '#f0f0f0' }}
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  padding: '24px 18px',
+                  border: '2px dashed #2a2a2a',
+                  background: '#1a1a1a',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  fontSize: 20,
+                  color: file ? '#f0f0f0' : '#555',
+                }}
+              >
+                {file ? `已选择：${file.name}` : '点击选择视频文件'}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                style={{ display: 'none' }}
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+              />
+              {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting || !file}
+                style={{ padding: '15px', fontSize: 21, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: submitting || !file ? 'not-allowed' : 'pointer', opacity: submitting || !file ? 0.6 : 1 }}
+              >
+                {submitting ? '上传中…' : '提交原片'}
+              </button>
+              {uploadMsg && <p style={{ fontSize: 16, color: '#6ee7b7' }}>{uploadMsg}</p>}
+              <button
+                type="button"
+                onClick={handleFinishRecording}
+                disabled={rawDeliverables.length === 0}
+                style={{ padding: '15px', fontSize: 21, fontWeight: 600, background: rawDeliverables.length === 0 ? '#1a1a1a' : '#4ade80', color: rawDeliverables.length === 0 ? '#555' : '#111', border: 'none', cursor: rawDeliverables.length === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                完成录制
+              </button>
+            </form>
           </>
         )}
       </div>
