@@ -250,7 +250,6 @@ export default function AdminRunPage() {
 
   async function approveScript() {
     if (!script) return
-    if (selectedGuestIds.length === 0) { setActionMsg('请先选择达人。'); return }
 
     await supabase.from('scripts').update({ status: 'APPROVED', script_text: scriptText }).eq('id', script.id)
 
@@ -259,18 +258,16 @@ export default function AdminRunPage() {
       await supabase.from('tasks').update({ status: 'DONE' }).eq('id', reviewTask.id)
     }
 
-    await supabase.from('tasks').insert(
-      selectedGuestIds.map(guestId => ({
-        type: 'RECORD_VIDEO',
-        status: 'OPEN',
-        reference_id: reference!.id,
-        script_id: script.id,
-        assignee_id: guestId,
-        assignee_role: 'guest',
-      }))
-    )
+    await supabase.from('tasks').insert({
+      type: 'RECORD_VIDEO',
+      status: 'OPEN',
+      reference_id: reference!.id,
+      script_id: script.id,
+      assignee_id: script.guest_id,
+      assignee_role: 'guest',
+    })
 
-    setActionMsg(`脚本已审核通过，录制任务已发送给 ${selectedGuestIds.length} 位达人。`)
+    setActionMsg('脚本已审核通过，录制任务已发送给达人。')
   }
 
   async function createEditTask() {
@@ -506,11 +503,8 @@ export default function AdminRunPage() {
             {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
               <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
             )}
-            {script && script.status === 'DRAFT' && openTask?.type === 'REVIEW_SCRIPT' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
-                <ActionBtn label={`审核通过脚本 → 发送给达人（${selectedGuestIds.length} 人）`} onClick={() => action(approveScript)} />
-              </div>
+            {script && (script.status === 'DRAFT' || script.status === 'IN_REVIEW') && openTask?.type === 'REVIEW_SCRIPT' && (
+              <ActionBtn label="审核通过脚本 → 发送给达人" onClick={() => action(approveScript)} />
             )}
             {recordDone && !editTaskExists && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

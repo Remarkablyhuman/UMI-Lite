@@ -12,13 +12,26 @@ type Task = {
   reference_id: string | null
 }
 
+type PendingScript = {
+  id: string
+  reference_id: string
+  status: string
+}
+
 export default function GuestInbox() {
   const router = useRouter()
   const supabase = createClient()
 
   const [tasks, setTasks] = useState<Task[]>([])
+  const [pendingScripts, setPendingScripts] = useState<PendingScript[]>([])
   const [runRefMap, setRunRefMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  const [newRef, setNewRef] = useState('')
+  const [newUrl, setNewUrl] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createMsg, setCreateMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -33,6 +46,7 @@ export default function GuestInbox() {
 
       if (!profile) { router.replace('/login'); return }
       if (profile.role !== 'guest') { router.replace('/'); return }
+      setUserId(user.id)
 
       const { data } = await supabase
         .from('tasks')
@@ -44,7 +58,21 @@ export default function GuestInbox() {
       const taskList = (data ?? []) as Task[]
       setTasks(taskList)
 
-      const refIds = [...new Set(taskList.map(t => t.reference_id).filter(Boolean))] as string[]
+      // Fetch DRAFT and IN_REVIEW scripts owned by guest
+      const { data: drafts } = await supabase
+        .from('scripts')
+        .select('id, reference_id, status')
+        .eq('guest_id', user.id)
+        .in('status', ['DRAFT', 'IN_REVIEW'])
+
+      const draftList = (drafts ?? []) as PendingScript[]
+      setPendingScripts(draftList)
+      const draftRefIds = draftList.map(s => s.reference_id).filter(Boolean) as string[]
+
+      const refIds = [...new Set([
+        ...taskList.map(t => t.reference_id).filter(Boolean),
+        ...draftRefIds
+      ])] as string[]
       if (refIds.length > 0) {
         const { data: refs } = await supabase
           .from('references')
@@ -59,6 +87,51 @@ export default function GuestInbox() {
     }
     load()
   }, [])
+
+  async function handleCreateReference(e: React.FormEvent) {
+    e.preventDefault()
+    setCreating(true)
+    setCreateMsg(null)
+
+    // 1. Insert reference (auto-approved)
+    const { data: inserted, error: refErr } = await supabase
+      .from('references')
+      .insert({ run_ref_id: newRef.trim(), url: newUrl.trim(), status: 'APPROVED', created_by: userId! })
+      .select('id')
+      .single()
+
+    if (refErr) {
+      setCreateMsg({ ok: false, text: refErr.code === '23505' ? '该编号已存在，请换一个' : refErr.message })
+      setCreating(false)
+      return
+    }
+
+    // 2. Insert REVIEW_REFERENCE task as DONE (reference is auto-approved for guests)
+    await supabase.from('tasks').insert({
+      type: 'REVIEW_REFERENCE',
+      status: 'DONE',
+      reference_id: inserted.id,
+      assignee_role: 'admin',
+    })
+
+    // 3. Insert blank draft script
+    const { data: newScript, error: scriptErr } = await supabase
+      .from('scripts')
+      .insert({ reference_id: inserted.id, guest_id: userId!, status: 'DRAFT', script_text: '' })
+      .select('id')
+      .single()
+
+    if (scriptErr) {
+      setCreateMsg({ ok: false, text: scriptErr.message })
+      setCreating(false)
+      return
+    }
+
+    setCreateMsg({ ok: true, text: `已提交，请点击「去写脚本」完成脚本并提交给管理员审核` })
+    setNewRef('')
+    setNewUrl('')
+    setCreating(false)
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -82,11 +155,49 @@ export default function GuestInbox() {
           </div>
         </div>
 
-        {tasks.filter(t => t.status === 'OPEN').length === 0 && tasks.filter(t => t.status === 'DONE').length === 0 && (
+        {/* ── Create Reference ── */}
+        <section style={{ marginBottom: 48 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 18, color: '#aaa' }}>
+            发起新任务
+          </h2>
+          <form onSubmit={handleCreateReference} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input
+              value={newRef}
+              onChange={e => setNewRef(e.target.value)}
+              placeholder="工作流编号（如：2026-03-05-产品介绍）"
+              required
+              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+            />
+            <input
+              value={newUrl}
+              onChange={e => setNewUrl(e.target.value)}
+              placeholder="参考资料链接（URL）"
+              type="url"
+              required
+              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+            />
+            {createMsg && (
+              <p style={{ fontSize: 16, color: createMsg.ok ? '#6ee7b7' : '#f87171', margin: 0 }}>
+                {createMsg.text}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={creating || !newRef.trim() || !newUrl.trim()}
+              style={{ padding: '10px', fontSize: 18, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer', opacity: creating || !newRef.trim() || !newUrl.trim() ? 0.5 : 1 }}
+            >
+              {creating ? '提交中…' : '提交'}
+            </button>
+          </form>
+        </section>
+
+        {tasks.filter(t => t.status === 'OPEN').length === 0 &&
+         tasks.filter(t => t.status === 'DONE').length === 0 &&
+         pendingScripts.length === 0 && (
           <p style={{ fontSize: 20, color: '#555' }}>暂无分配给你的任务。</p>
         )}
 
-        {tasks.filter(t => t.status === 'OPEN').length > 0 && (
+        {(tasks.filter(t => t.status === 'OPEN').length > 0 || pendingScripts.length > 0) && (
           <>
             <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12 }}>待办</p>
             {tasks.filter(t => t.status === 'OPEN').map(t => (
@@ -101,6 +212,24 @@ export default function GuestInbox() {
                     style={{ fontSize: 18, padding: '6px 15px', cursor: 'pointer', background: '#f0f0f0', color: '#111', border: 'none' }}
                   >
                     去录制
+                  </button>
+                )}
+              </div>
+            ))}
+            {pendingScripts.map(s => (
+              <div key={`draft-${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+                <div>
+                  <span style={{ fontSize: 20, fontWeight: 600 }}>{runRefMap[s.reference_id] ?? s.reference_id}</span>
+                  <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>
+                    {s.status === 'DRAFT' ? '去写脚本' : '等待管理员审核脚本'}
+                  </span>
+                </div>
+                {s.status === 'DRAFT' && (
+                  <button
+                    onClick={() => router.push(`/guest/script/${s.id}`)}
+                    style={{ fontSize: 18, padding: '6px 15px', cursor: 'pointer', background: '#f0f0f0', color: '#111', border: 'none' }}
+                  >
+                    去写脚本
                   </button>
                 )}
               </div>
