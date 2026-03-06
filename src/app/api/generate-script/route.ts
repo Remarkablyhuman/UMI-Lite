@@ -42,12 +42,14 @@ export async function POST(req: NextRequest) {
     const raw = completion.choices[0]?.message?.content ?? ''
 
     // Split on the --- separator that precedes "Evidence Used:"
-    const sepIndex = raw.search(/\n---\n/)
+    // Use line-by-line scan to handle variations like "\n\n---\n\n" or "--- "
+    const lines = raw.split('\n')
+    const sepLineIndex = lines.findIndex(l => l.trim() === '---')
     let part1: string
     let part2: string
-    if (sepIndex !== -1) {
-      part1 = raw.slice(0, sepIndex).trim()
-      part2 = raw.slice(sepIndex + 5).trim() // skip "\n---\n"
+    if (sepLineIndex !== -1) {
+      part1 = lines.slice(0, sepLineIndex).join('\n').trim()
+      part2 = lines.slice(sepLineIndex + 1).join('\n').trim()
     } else {
       // Fallback: return everything as part1
       part1 = raw.trim()
@@ -124,13 +126,13 @@ Evidence Used:
 - Confirm "No disallowed claims used"
 
 Script Summary:
-(1–2 sentences summarising the script's core message and angle)
+(1–2 sentences summarising the core message and angle of the PART 1 script you just wrote above — NOT a summary of the reference transcript)
 
 Key Points:
 - (main idea 1)
 - (main idea 2)
 - (main idea 3)
-[up to 5 bullet points reflecting the main ideas in the script]
+[up to 5 bullet points reflecting the main ideas in the REFERENCE TRANSCRIPT — NOT the script you just wrote]
 
 2) Grounding rules:
 - You MUST reuse or closely paraphrase at least 3 phrases from the reference transcript.

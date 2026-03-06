@@ -138,6 +138,7 @@ export default function AdminRunPage() {
 
   async function markParsed() {
     await supabase.from('references').update({ status: 'PARSED' }).eq('id', reference!.id)
+    setReference(prev => prev ? { ...prev, status: 'PARSED' } : prev)
     setActionMsg('参考素材已标记为已解析。')
   }
 
@@ -500,7 +501,7 @@ export default function AdminRunPage() {
         {userRole === 'admin' && <Section title="操作">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {reference.status === 'SUBMITTED' && (
-              <ActionBtn label="参考素材已解析" onClick={() => action(markParsed)} />
+              <ActionBtn label="参考素材已解析" onClick={markParsed} />
             )}
             {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
               <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
