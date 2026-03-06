@@ -248,7 +248,7 @@ export default function GuestInbox() {
                 </div>
                 {t.reference_id && runRefMap[t.reference_id] && (
                   <button
-                    onClick={() => router.push(`/admin/run/${runRefMap[t.reference_id]}`)}
+                    onClick={() => router.push(`/admin/run/${runRefMap[t.reference_id!]}`)}
                     style={{ fontSize: 16, padding: '4px 14px', cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', color: '#888' }}
                   >
                     查看

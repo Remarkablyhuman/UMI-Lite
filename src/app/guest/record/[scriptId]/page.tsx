@@ -8,7 +8,7 @@ type Script = {
   id: string
   script_text: string | null
   reference_id: string | null
-  ref: { run_ref_id: string } | null
+  ref: { run_ref_id: string }[] | null
 }
 
 export default function GuestRecordPage() {
@@ -168,7 +168,7 @@ export default function GuestRecordPage() {
           ← 返回
         </button>
 
-        <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 6 }}>{script.ref?.run_ref_id ?? scriptId}</h1>
+        <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 6 }}>{script.ref?.[0]?.run_ref_id ?? scriptId}</h1>
         <p style={{ fontSize: 18, color: '#555', marginBottom: 48 }}>{taskDone ? '已完成录制。' : '请对照以下脚本录制视频，完成后上传视频文件。'}</p>
 
         <textarea
