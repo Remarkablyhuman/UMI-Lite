@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export const dynamic = 'force-dynamic'
-
 const roleLabels: Record<'guest' | 'editor', string> = {
   guest: '达人',
   editor: '剪辑师',

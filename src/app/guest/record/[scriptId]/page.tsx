@@ -4,8 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export const dynamic = 'force-dynamic'
-
 type Script = {
   id: string
   script_text: string | null

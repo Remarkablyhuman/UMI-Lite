@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export const dynamic = 'force-dynamic'
-
 type Reference = {
   id: string
   run_ref_id: string

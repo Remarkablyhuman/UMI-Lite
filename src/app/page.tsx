@@ -4,8 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export const dynamic = 'force-dynamic'
-
 export default function Home() {
   const router = useRouter()
   const supabase = createClient()
