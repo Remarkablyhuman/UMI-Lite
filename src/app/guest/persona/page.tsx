@@ -247,6 +247,7 @@ export default function GuestPersonaPage() {
   const [versions, setVersions] = useState<VersionRow[]>([])
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [advisory, setAdvisory] = useState<string | null>(null)
   const [rollingBack, setRollingBack] = useState<number | null>(null)
 
   const loadData = useCallback(async (uid: string) => {
@@ -355,6 +356,7 @@ export default function GuestPersonaPage() {
       }
     } else {
       setGenMsg({ ok: true, text: `已生成 v${json.version}（使用 ${json.kb_entries_used} 条知识库）` })
+      setAdvisory(json.advisory ?? null)
       if (userId) await loadData(userId)
     }
     setGenerating(false)
@@ -556,6 +558,17 @@ export default function GuestPersonaPage() {
             <p style={{ fontSize: 17, color: genMsg.ok ? '#6ee7b7' : '#f87171', marginBottom: 18 }}>
               {genMsg.text}
             </p>
+          )}
+
+          {advisory && (
+            <div style={{ background: '#0d1a14', border: '1px solid #1a3326', padding: '28px 32px', marginBottom: 32 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 600, color: '#6ee7b7', margin: '0 0 16px', letterSpacing: 0.3 }}>
+                社媒视频创作建议
+              </h3>
+              <p style={{ fontSize: 15, color: '#a0c4b4', lineHeight: 1.85, margin: 0, whiteSpace: 'pre-wrap' }}>
+                {advisory}
+              </p>
+            </div>
           )}
 
           {activePersona ? (

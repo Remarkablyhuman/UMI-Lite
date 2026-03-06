@@ -18,6 +18,28 @@ const REQUIRED_PERSONA_KEYS = [
   'evidence',
 ]
 
+function buildAdvisoryPrompt(selfIntroEntries: { raw_text: string }[]): string {
+  const content = selfIntroEntries
+    .map((e, i) => `[${i + 1}]\n${e.raw_text}`)
+    .join('\n\n')
+
+  return `你是一位专业的社交媒体视频内容顾问。以下是一位内容创作者提交的自我介绍：
+
+---
+${content}
+---
+
+请根据上述内容，为这位创作者提供一段专业、实用的社媒短视频创作建议。建议须涵盖以下三个方面并不少于300字：
+
+1. **内容方向定位**：结合其背景与优势，建议聚焦哪类内容赛道
+2. **整体语气与风格**：建议视频呈现的整体调性、节奏感与风格取向
+3. **语言运用技巧**：如何在视频脚本或讲述中更有效地表达、打动观众
+
+再提供 3 个具体且具备传播潜力的视频选题
+
+请以流畅、自然的段落形式呈现，直接面向创作者本人，语气专业、坦诚且具体可执行。不要使用编号列表，融合为连贯叙述。`
+}
+
 function buildPersonaPrompt(entries: { raw_text: string; source_type: string }[]): string {
   const formatted = entries
     .map((e, i) => `[${i + 1}] (${e.source_type})\n${e.raw_text}`)
@@ -204,10 +226,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: upsertErr.message }, { status: 500 })
     }
 
+    // Generate advisory if any self_intro entries were used
+    let advisory: string | null = null
+    const selfIntroEntries = kbEntries.filter(e => e.source_type === 'self_intro')
+    if (selfIntroEntries.length > 0) {
+      const advisoryPrompt = buildAdvisoryPrompt(selfIntroEntries)
+      const advisoryCompletion = await openai.chat.completions.create({
+        model: 'gpt-5.1',
+        messages: [{ role: 'user', content: advisoryPrompt }],
+        temperature: 0.7,
+      })
+      advisory = advisoryCompletion.choices[0]?.message?.content ?? null
+    }
+
     return NextResponse.json({
       version: nextVersion,
       kb_entries_used: kbEntries.length,
       persona: personaData,
+      ...(advisory != null ? { advisory } : {}),
     })
   } catch (err: any) {
     console.error('[persona/regenerate]', err)
