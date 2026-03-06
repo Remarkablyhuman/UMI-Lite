@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 const KB_SOURCE_TYPES = ['self_intro', 'interview', 'qa', 'case_study', 'update_patch'] as const
 type KbSourceType = (typeof KB_SOURCE_TYPES)[number]
 
@@ -43,6 +41,7 @@ function chunkText(text: string, targetSize = 1000, overlap = 100): string[] {
 }
 
 export async function POST(req: NextRequest) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   try {
     const supabase = await createClient()
 
