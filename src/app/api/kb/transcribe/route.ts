@@ -15,7 +15,12 @@ export async function POST(req: NextRequest) {
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 403 })
     if (profile.role === 'editor') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const formData = await req.formData()
+    let formData: FormData
+    try {
+      formData = await req.formData()
+    } catch {
+      return NextResponse.json({ error: '音频文件过大，请上传小于 25MB 的文件' }, { status: 413 })
+    }
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: '缺少音频文件' }, { status: 400 })
 

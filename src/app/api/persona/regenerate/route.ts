@@ -208,24 +208,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: versionErr.message }, { status: 500 })
     }
 
-    // Upsert active profile
-    const { error: upsertErr } = await supabase
-      .from('guest_profiles')
-      .upsert(
-        {
-          guest_id: user.id,
-          profile_data: personaData,
-          status: 'ACTIVE',
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'guest_id' }
-      )
-
-    if (upsertErr) {
-      console.error('[persona/regenerate] upsert error:', upsertErr)
-      return NextResponse.json({ error: upsertErr.message }, { status: 500 })
-    }
-
     // Generate advisory if any self_intro entries were used
     let advisory: string | null = null
     const selfIntroEntries = kbEntries.filter(e => e.source_type === 'self_intro')
@@ -237,6 +219,25 @@ export async function POST(req: NextRequest) {
         temperature: 0.7,
       })
       advisory = advisoryCompletion.choices[0]?.message?.content ?? null
+    }
+
+    // Upsert active profile
+    const { error: upsertErr } = await supabase
+      .from('guest_profiles')
+      .upsert(
+        {
+          guest_id: user.id,
+          profile_data: personaData,
+          status: 'ACTIVE',
+          updated_at: new Date().toISOString(),
+          advisory: advisory ?? null,
+        },
+        { onConflict: 'guest_id' }
+      )
+
+    if (upsertErr) {
+      console.error('[persona/regenerate] upsert error:', upsertErr)
+      return NextResponse.json({ error: upsertErr.message }, { status: 500 })
     }
 
     return NextResponse.json({

@@ -125,7 +125,13 @@ export default function GuestRecordPage() {
     const storagePath = `raw/${scriptId}/${timestamp}-${file.name}`
 
     const { error: uploadErr } = await supabase.storage.from('videos').upload(storagePath, file)
-    if (uploadErr) { setError(uploadErr.message); setSubmitting(false); return }
+    if (uploadErr) {
+      const isTooBig = (uploadErr as any).status === 413 ||
+        /too large|exceed|payload/i.test(uploadErr.message)
+      setError(isTooBig ? '文件过大，请减小文件后重试' : uploadErr.message)
+      setSubmitting(false)
+      return
+    }
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId,

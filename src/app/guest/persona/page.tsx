@@ -240,6 +240,7 @@ export default function GuestPersonaPage() {
 
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [transcribing, setTranscribing] = useState(false)
+  const [audioError, setAudioError] = useState<string | null>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
 
   const [kbEntries, setKbEntries] = useState<KbEntry[]>([])
@@ -260,7 +261,7 @@ export default function GuestPersonaPage() {
         .limit(50),
       supabase
         .from('guest_profiles')
-        .select('profile_data, updated_at')
+        .select('profile_data, advisory, updated_at')
         .eq('guest_id', uid)
         .maybeSingle(),
       supabase
@@ -272,6 +273,7 @@ export default function GuestPersonaPage() {
     ])
     setKbEntries((kbRes.data ?? []) as KbEntry[])
     setActivePersona((personaRes.data as ActivePersona) ?? null)
+    setAdvisory((personaRes.data as any)?.advisory ?? null)
     setVersions((versionsRes.data ?? []) as VersionRow[])
   }, [])
 
@@ -299,13 +301,21 @@ export default function GuestPersonaPage() {
   async function handleTranscribe() {
     if (!audioFile) return
     setTranscribing(true)
-    setKbMsg(null)
+    setAudioError(null)
     const fd = new FormData()
     fd.append('file', audioFile)
     const res = await fetch('/api/kb/transcribe', { method: 'POST', body: fd })
-    const json = await res.json()
+    let json: any = {}
+    try { json = await res.json() } catch {}
     setTranscribing(false)
-    if (!res.ok) { setKbMsg({ ok: false, text: json.error ?? '转录失败' }); return }
+    if (res.status === 413) {
+      setAudioError('音频文件过大，请上传小于 25MB 的文件')
+      return
+    }
+    if (!res.ok) {
+      setAudioError(json.error ?? '转录失败')
+      return
+    }
     setRawText(prev => prev ? prev + '\n\n' + json.text : json.text)
     setAudioFile(null)
     if (audioInputRef.current) audioInputRef.current.value = ''
@@ -441,7 +451,7 @@ export default function GuestPersonaPage() {
                 type="file"
                 accept="audio/*"
                 style={{ display: 'none' }}
-                onChange={e => setAudioFile(e.target.files?.[0] ?? null)}
+                onChange={e => { setAudioFile(e.target.files?.[0] ?? null); setAudioError(null) }}
               />
               <button
                 type="button"
@@ -461,6 +471,10 @@ export default function GuestPersonaPage() {
                 </button>
               )}
             </div>
+
+            {audioError && (
+              <p style={{ color: '#f87171', fontSize: 15, margin: '4px 0 0' }}>{audioError}</p>
+            )}
 
             <div style={{ position: 'relative' }}>
               <textarea
