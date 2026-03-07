@@ -195,7 +195,7 @@ export default function AdminInbox() {
                   </div>
                 </div>
                 <button
-                  onClick={() => router.push(`/admin/run/${r.run_ref_id}`)}
+                  onClick={() => router.push(`/admin/run/${encodeURIComponent(r.run_ref_id)}`)}
                   style={{ fontSize: 16, padding: '4px 12px', cursor: 'pointer', border: 'none', background: '#f0f0f0', color: '#111' }}
                 >
                   查看
@@ -237,7 +237,7 @@ export default function AdminInbox() {
             <button
               onClick={() => {
                 window.open('https://fieldshortcut.com/en/tools/video-summary', '_blank')
-                router.push(`/admin/run/${pendingRunRef}`)
+                router.push(`/admin/run/${encodeURIComponent(pendingRunRef)}`)
                 setPendingRunRef(null)
               }}
               style={{ flex: 1, padding: '12px', fontSize: 20, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer' }}
@@ -245,7 +245,7 @@ export default function AdminInbox() {
               确定
             </button>
             <button
-              onClick={() => { router.push(`/admin/run/${pendingRunRef}`); setPendingRunRef(null) }}
+              onClick={() => { router.push(`/admin/run/${encodeURIComponent(pendingRunRef)}`); setPendingRunRef(null) }}
               style={{ flex: 1, padding: '12px', fontSize: 20, background: '#1a1a1a', color: '#888', border: '1px solid #2a2a2a', cursor: 'pointer' }}
             >
               跳过

@@ -49,6 +49,7 @@ type GuestProfile = {
 export default function AdminRunPage() {
   const router = useRouter()
   const { run_ref_id } = useParams<{ run_ref_id: string }>()
+  const decoded_run_ref_id = decodeURIComponent(run_ref_id)
   const supabase = createClient()
 
   const [reference, setReference] = useState<Reference | null>(null)
@@ -82,7 +83,7 @@ export default function AdminRunPage() {
     const { data: ref } = await supabase
       .from('references')
       .select('id, run_ref_id, url, status, parsed_json')
-      .eq('run_ref_id', run_ref_id)
+      .eq('run_ref_id', decoded_run_ref_id)
       .single()
     setReference(ref ?? null)
 
@@ -357,7 +358,7 @@ export default function AdminRunPage() {
           ← 工作台
         </button>
 
-        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 6 }}>{run_ref_id}</h1>
+        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 6 }}>{decoded_run_ref_id}</h1>
         <p style={{ fontSize: 20, color: '#555', marginBottom: 48 }}>状态：{reference.status}</p>
 
         <Section title="参考素材">
