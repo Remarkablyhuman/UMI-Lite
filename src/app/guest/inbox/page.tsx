@@ -127,10 +127,7 @@ export default function GuestInbox() {
       return
     }
 
-    setCreateMsg({ ok: true, text: `已提交，请点击「去写脚本」完成脚本并提交给管理员审核` })
-    setNewRef('')
-    setNewUrl('')
-    setCreating(false)
+    router.push(`/guest/script/${newScript.id}`)
   }
 
   async function handleSignOut() {
