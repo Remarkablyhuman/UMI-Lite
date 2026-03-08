@@ -91,12 +91,29 @@ export function buildHumanScriptWithEvidencePrompt(params: {
     ? `\nCRITICAL — EXTRA INSTRUCTIONS (highest priority, override style defaults if needed):\n${topicBrief.trim()}\n`
     : '';
 
-  const system = `
-You are a professional short-form video scriptwriter.
+  const system_temp = `
+  You are a professional short-form video scriptwriter.
 
-Your task:
-Write a script that sounds like the creator described in the persona JSON,
-and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
+  Your task:
+  Write a script that that preserves the main topic, content, and perspective of the REFERENCE TRANSCRIPT, slightly adjust the language so that it sounds like the creator described in the persona JSON,
+  and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
+  `
+
+  const system = `
+  You are a director preparing a word-for-word script for a new narrator.
+
+  Your task:
+  Write a script that that preserves the main topic, content, and perspective of the REFERENCE TRANSCRIPT, slightly adjust the language so that it sounds like the creator described in the persona JSON,
+  and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
+  All core information in the original text must remain unchanged, including data, events, prices, time, locations, and other factual details.
+  The new narrator’s background is attached as PERSONA JSON.
+  The script must be written strictly from the perspective of the narrator’s real-life experiences and personal observations.
+
+  Requirements:
+  The tone should feel like the narrator is sharing their own life experiences, not explaining or commenting like a content creator.
+  Do not use generic influencer or commentator language
+  The final script must not reveal the structure of the original text.
+  It should sound natural, personal, and conversational, as if the narrator is speaking from their own life and background.
 ${extraBlock}
 LENGTH REQUIREMENT for PART 1 only (mandatory — do not deviate):
 - PART 1 (the script) must be approximately ${targetChars} Chinese characters (or equivalent words if in English).
