@@ -66,15 +66,15 @@ export default function EditorInbox() {
     router.replace('/login')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div></div>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
-          <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 剪辑任务</h1>
-          <button onClick={handleSignOut} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48, flexWrap: 'wrap', rowGap: 12 }}>
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700 }}>UMI — 剪辑任务</h1>
+          <button onClick={handleSignOut} style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
             退出登录
           </button>
         </div>
@@ -87,7 +87,7 @@ export default function EditorInbox() {
           <>
             <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12 }}>待办</p>
             {tasks.filter(t => t.status === 'OPEN').map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e', flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
                   {t.comment && <span style={{ fontSize: 15, color: '#f87171', marginLeft: 8 }}>(返工)</span>}
@@ -110,7 +110,7 @@ export default function EditorInbox() {
           <>
             <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12, marginTop: 48 }}>已完成</p>
             {tasks.filter(t => t.status === 'DONE').map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e', flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600, color: '#555' }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
                   <span style={{ fontSize: 18, color: '#444', marginLeft: 18 }}>{t.type}</span>

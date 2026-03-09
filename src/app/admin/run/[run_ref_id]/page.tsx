@@ -339,8 +339,8 @@ export default function AdminRunPage() {
     setActionMsg('成片已审核通过，本次任务完成。')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
-  if (!reference) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Run not found.</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (!reference) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Run not found.</div>
 
   const openTask = tasks.find(t => t.status === 'OPEN')
   const raws = deliverables.filter(d => d.type === 'raw')
@@ -350,15 +350,16 @@ export default function AdminRunPage() {
   const editDone = !tasks.some(t => t.type === 'EDIT_VIDEO' && t.status === 'OPEN')
                 && tasks.some(t => t.type === 'EDIT_VIDEO' && t.status === 'DONE')
   const reviewFinalExists = tasks.some(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'OPEN')
+  const reviewFinalDone = tasks.some(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'DONE')
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
         <button onClick={() => router.push('/admin/inbox')} style={{ fontSize: 18, marginBottom: 36, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: '#888' }}>
           ← 工作台
         </button>
 
-        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 6 }}>{decoded_run_ref_id}</h1>
+        <h1 style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700, marginBottom: 6 }}>{decoded_run_ref_id}</h1>
         <p style={{ fontSize: 20, color: '#555', marginBottom: 48 }}>状态：{reference.status}</p>
 
         <Section title="参考素材">
@@ -525,7 +526,7 @@ export default function AdminRunPage() {
                 <ActionBtn label="分配剪辑任务给剪辑师" onClick={() => action(createEditTask)} />
               </div>
             )}
-            {editDone && !reviewFinalExists && (
+            {editDone && !reviewFinalExists && !reviewFinalDone && (
               <ActionBtn label="创建成片审核任务" onClick={() => action(createReviewFinalCutTask)} />
             )}
             {openTask?.type === 'REVIEW_FINAL_CUT' && final && (

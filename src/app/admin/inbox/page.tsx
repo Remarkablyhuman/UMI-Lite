@@ -130,20 +130,20 @@ export default function AdminInbox() {
     router.replace('/login')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
 
   return (
     <>
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
-          <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 管理员工作台</h1>
-          <button onClick={handleSignOut} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48, flexWrap: 'wrap', rowGap: 12 }}>
+          <h1 style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700 }}>UMI — 管理员工作台</h1>
+          <button onClick={handleSignOut} style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
             退出登录
           </button>
         </div>
 
-        <section style={{ marginBottom: 60, padding: 30, border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
+        <section style={{ marginBottom: 60, padding: 'clamp(16px, 4vw, 30px)', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
           <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 18 }}>新建任务</h2>
           <form onSubmit={handleCreateRun} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input
@@ -151,24 +151,24 @@ export default function AdminInbox() {
               placeholder="任务编号（如 YYYY-MM-DD-标题）"
               value={runRefId}
               onChange={e => setRunRefId(e.target.value)}
-              style={{ padding: '9px 15px', fontSize: 21, border: '1px solid #2a2a2a', outline: 'none', background: '#222', color: '#f0f0f0' }}
+              style={{ padding: '9px 15px', fontSize: 'clamp(17px, 3vw, 21px)', border: '1px solid #2a2a2a', outline: 'none', background: '#222', color: '#f0f0f0', width: '100%', boxSizing: 'border-box' }}
             />
             <input
               type="text"
               placeholder="参考链接 URL"
               value={url}
               onChange={e => setUrl(e.target.value)}
-              style={{ padding: '9px 15px', fontSize: 21, border: '1px solid #2a2a2a', outline: 'none', background: '#222', color: '#f0f0f0' }}
+              style={{ padding: '9px 15px', fontSize: 'clamp(17px, 3vw, 21px)', border: '1px solid #2a2a2a', outline: 'none', background: '#222', color: '#f0f0f0', width: '100%', boxSizing: 'border-box' }}
             />
             <button
               type="submit"
               disabled={creating}
-              style={{ padding: '9px 24px', fontSize: 21, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer' }}
+              style={{ padding: '9px 24px', fontSize: 'clamp(17px, 3vw, 21px)', fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer' }}
             >
               {creating ? '...' : '创建'}
             </button>
           </form>
-          {createError && <p style={{ color: '#f87171', fontSize: 20, marginTop: 12 }}>{createError}</p>}
+          {createError && <p style={{ color: '#f87171', fontSize: 18, marginTop: 12 }}>{createError}</p>}
         </section>
 
         {(() => {
@@ -179,15 +179,15 @@ export default function AdminInbox() {
           const renderRow = (r: Reference) => {
             const ref_progress = progress[r.id] ?? {}
             return (
-              <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1e1e1e' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 18 }}>
-                  <span style={{ fontWeight: 600, minWidth: 80 }}>{r.run_ref_id}</span>
-                  <div style={{ display: 'flex', gap: 16 }}>
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #1e1e1e', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 18, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600 }}>{r.run_ref_id}</span>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {STAGES.map(stage => {
                       const s = ref_progress[stage]
                       const color = s === 'DONE' ? '#4ade80' : s === 'OPEN' ? '#f0f0f0' : '#333'
                       return (
-                        <span key={stage} style={{ color, fontSize: 16 }}>
+                        <span key={stage} style={{ color, fontSize: 15 }}>
                           {s === 'DONE' ? '✓' : s === 'OPEN' ? '●' : '○'} {STAGE_LABELS[stage]}
                         </span>
                       )

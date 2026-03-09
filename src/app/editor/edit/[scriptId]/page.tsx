@@ -169,16 +169,16 @@ export default function EditorEditPage() {
     router.replace('/editor/inbox')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
         <button onClick={() => router.push('/editor/inbox')} style={{ fontSize: 18, marginBottom: 36, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: '#888' }}>
           ← 返回
         </button>
 
-        <h1 style={{ fontSize: 27, fontWeight: 700, marginBottom: 24 }}>{taskDone ? '已完成剪辑' : '提交成片'}</h1>
+        <h1 style={{ fontSize: 'clamp(18px, 4vw, 27px)', fontWeight: 700, marginBottom: 24 }}>{taskDone ? '已完成剪辑' : '提交成片'}</h1>
 
         {taskComment && !taskDone && (
           <div style={{ marginBottom: 36, padding: '18px 24px', background: '#1a0000', border: '1px solid #7f1d1d' }}>
@@ -188,7 +188,7 @@ export default function EditorEditPage() {
         )}
 
         {scriptText && (
-          <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#000', color: '#f0f0f0', padding: 36, marginBottom: 48, lineHeight: 1.8, border: '1px solid #2a2a2a' }}>
+          <pre style={{ fontSize: 'clamp(16px, 3vw, 20px)', whiteSpace: 'pre-wrap', background: '#000', color: '#f0f0f0', padding: 'clamp(16px, 4vw, 36px)', marginBottom: 48, lineHeight: 1.8, border: '1px solid #2a2a2a' }}>
             {scriptText}
           </pre>
         )}

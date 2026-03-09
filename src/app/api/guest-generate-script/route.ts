@@ -103,7 +103,7 @@ export function buildHumanScriptWithEvidencePrompt(params: {
   You are a director preparing a word-for-word script for a new narrator.
 
   Your task:
-  Write a script that preserves the main topic, content, and perspective of the REFERENCE TRANSCRIPT, slightly adjust the language so that it sounds like the creator described in the persona JSON,
+  Write a script that preserves and expands upon the main topic, content, and perspective of the REFERENCE TRANSCRIPT, slightly adjust the language so that it sounds like the creator described in the persona JSON,
   and mirrors the speaking rhythm, structure, and natural wording style of the reference transcript.
   All core information in the original text must remain unchanged, including data, events, prices, time, locations, and other factual details.
   The new narrator’s background is attached as PERSONA JSON.
