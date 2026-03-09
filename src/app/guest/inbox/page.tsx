@@ -135,14 +135,14 @@ export default function GuestInbox() {
     router.replace('/login')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
-          <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 我的任务</h1>
-          <div style={{ display: 'flex', gap: 12 }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: 12, marginBottom: 'clamp(24px, 5vw, 48px)' }}>
+          <h1 style={{ fontSize: 'clamp(22px, 6vw, 30px)', fontWeight: 700 }}>UMI — 我的任务</h1>
+          <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
             <button onClick={() => router.push('/guest/persona')} style={{ fontSize: 20, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}>
               我的画像
             </button>
@@ -163,7 +163,7 @@ export default function GuestInbox() {
               onChange={e => setNewRef(e.target.value)}
               placeholder="工作流编号（如：2026-03-05-产品介绍）"
               required
-              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', width: '100%', boxSizing: 'border-box' }}
             />
             <input
               value={newUrl}
@@ -171,7 +171,7 @@ export default function GuestInbox() {
               placeholder="参考资料链接（URL）"
               type="url"
               required
-              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+              style={{ padding: '10px 14px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', width: '100%', boxSizing: 'border-box' }}
             />
             {createMsg && (
               <p style={{ fontSize: 16, color: createMsg.ok ? '#6ee7b7' : '#f87171', margin: 0 }}>
@@ -198,7 +198,7 @@ export default function GuestInbox() {
           <>
             <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12 }}>待办</p>
             {tasks.filter(t => t.status === 'OPEN').map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600 }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
                   <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>{t.type}</span>
@@ -214,7 +214,7 @@ export default function GuestInbox() {
               </div>
             ))}
             {pendingScripts.map(s => (
-              <div key={`draft-${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+              <div key={`draft-${s.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600 }}>{runRefMap[s.reference_id] ?? s.reference_id}</span>
                   <span style={{ fontSize: 18, color: '#555', marginLeft: 18 }}>
@@ -238,7 +238,7 @@ export default function GuestInbox() {
           <>
             <p style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: '#444', marginBottom: 12, marginTop: 48 }}>已完成</p>
             {tasks.filter(t => t.status === 'DONE').map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, padding: '18px 0', borderBottom: '1px solid #1e1e1e' }}>
                 <div>
                   <span style={{ fontSize: 20, fontWeight: 600, color: '#555' }}>{t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}</span>
                   <span style={{ fontSize: 18, color: '#444', marginLeft: 18 }}>{t.type}</span>

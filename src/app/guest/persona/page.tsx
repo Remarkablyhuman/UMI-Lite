@@ -398,7 +398,7 @@ export default function GuestPersonaPage() {
   }
 
   if (loading) return (
-    <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>
+    <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>
       Loading...
     </div>
   )
@@ -407,12 +407,12 @@ export default function GuestPersonaPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 }}>
-          <h1 style={{ fontSize: 30, fontWeight: 700 }}>UMI — 我的画像</h1>
-          <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: 12, marginBottom: 'clamp(24px, 5vw, 48px)' }}>
+          <h1 style={{ fontSize: 'clamp(22px, 6vw, 30px)', fontWeight: 700 }}>UMI — 我的画像</h1>
+          <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
             <button
               onClick={() => router.push('/guest/inbox')}
               style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: '1px solid #2a2a2a', padding: '6px 15px', color: '#888' }}
@@ -430,14 +430,14 @@ export default function GuestPersonaPage() {
 
         {/* ── KB Submit ── */}
         <section style={{ marginBottom: 60 }}>
-          <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 24, color: '#aaa' }}>
+          <h2 style={{ fontSize: 'clamp(17px, 4vw, 21px)', fontWeight: 600, marginBottom: 24, color: '#aaa' }}>
             提交知识库内容
           </h2>
           <form onSubmit={handleKbSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <select
               value={sourceType}
               onChange={e => setSourceType(e.target.value)}
-              style={{ padding: '10px 14px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
+              style={{ padding: '10px 14px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', width: '100%', boxSizing: 'border-box' }}
             >
               {SOURCE_TYPES.map(st => (
                 <option key={st.value} value={st.value}>{st.label}</option>
@@ -445,7 +445,7 @@ export default function GuestPersonaPage() {
             </select>
 
             {/* Audio upload */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <input
                 ref={audioInputRef}
                 type="file"
@@ -523,7 +523,7 @@ export default function GuestPersonaPage() {
 
         {/* ── KB List ── */}
         <section style={{ marginBottom: 60 }}>
-          <h2 style={{ fontSize: 21, fontWeight: 600, marginBottom: 18, color: '#aaa' }}>
+          <h2 style={{ fontSize: 'clamp(17px, 4vw, 21px)', fontWeight: 600, marginBottom: 18, color: '#aaa' }}>
             知识库 ({kbEntries.length} 条)
           </h2>
           {kbEntries.length === 0
@@ -532,7 +532,7 @@ export default function GuestPersonaPage() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {kbEntries.map(entry => (
                   <div key={entry.id} style={{ padding: '14px 0', borderBottom: '1px solid #1e1e1e' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
                       <span style={{ fontSize: 14, color: '#555', minWidth: 90 }}>
                         {new Date(entry.created_at).toLocaleDateString('zh-CN')}
                       </span>
@@ -555,8 +555,8 @@ export default function GuestPersonaPage() {
 
         {/* ── Persona ── */}
         <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-            <h2 style={{ fontSize: 21, fontWeight: 600, color: '#aaa', margin: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: 12, marginBottom: 18 }}>
+            <h2 style={{ fontSize: 'clamp(17px, 4vw, 21px)', fontWeight: 600, color: '#aaa', margin: 0 }}>
               我的画像 {currentVersion !== null ? `(当前 v${currentVersion})` : ''}
             </h2>
             <button
@@ -575,7 +575,7 @@ export default function GuestPersonaPage() {
           )}
 
           {advisory && (
-            <div style={{ background: '#0d1a14', border: '1px solid #1a3326', padding: '28px 32px', marginBottom: 32 }}>
+            <div style={{ background: '#0d1a14', border: '1px solid #1a3326', padding: 'clamp(16px, 4vw, 32px)', marginBottom: 32 }}>
               <h3 style={{ fontSize: 17, fontWeight: 600, color: '#6ee7b7', margin: '0 0 16px', letterSpacing: 0.3 }}>
                 社媒视频创作建议
               </h3>
@@ -586,7 +586,7 @@ export default function GuestPersonaPage() {
           )}
 
           {activePersona ? (
-            <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', padding: '32px 36px', marginBottom: 36 }}>
+            <div style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', padding: 'clamp(16px, 4vw, 36px)', marginBottom: 36 }}>
               <MarkdownView md={buildPersonaMarkdown(activePersona.profile_data)} />
             </div>
           ) : (

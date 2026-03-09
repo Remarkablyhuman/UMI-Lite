@@ -120,12 +120,12 @@ export default function GuestScriptPage() {
     router.push('/guest/inbox')
   }
 
-  if (loading) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
-  if (!script || !reference) return <div style={{ padding: 48, background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Script not found.</div>
+  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (!script || !reference) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Script not found.</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: 48, fontFamily: 'monospace' }}>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
         <button
           onClick={() => router.push('/guest/inbox')}
           style={{ fontSize: 18, marginBottom: 36, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: '#888' }}
@@ -133,7 +133,7 @@ export default function GuestScriptPage() {
           ← 返回
         </button>
 
-        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 6 }}>{reference.run_ref_id}</h1>
+        <h1 style={{ fontSize: 'clamp(22px, 6vw, 30px)', fontWeight: 700, marginBottom: 6 }}>{reference.run_ref_id}</h1>
         <p style={{ fontSize: 18, color: '#555', marginBottom: 6 }}>
           参考资料：<a href={reference.url} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>{reference.url}</a>
         </p>
@@ -150,7 +150,7 @@ export default function GuestScriptPage() {
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
-                  fontSize: 20,
+                  fontSize: 'clamp(16px, 3vw, 20px)',
                   padding: 15,
                   paddingBottom: 32,
                   border: '1px solid #2a2a2a',

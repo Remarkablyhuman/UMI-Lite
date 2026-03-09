@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { resumableUpload } from '@/lib/storage/resumableUpload'
 
 export default function EditorEditPage() {
   const router = useRouter()
@@ -26,6 +27,7 @@ export default function EditorEditPage() {
   const [loadingFinalUrl, setLoadingFinalUrl] = useState(false)
   const [loadingFinalDownload, setLoadingFinalDownload] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -136,17 +138,18 @@ export default function EditorEditPage() {
     const timestamp = Date.now()
     const storagePath = `final/${scriptId}/${timestamp}-${file.name}`
 
-    const { error: uploadErr } = await supabase.storage
-      .from('videos')
-      .upload(storagePath, file)
-
-    if (uploadErr) {
-      const isTooBig = (uploadErr as any).status === 413 ||
-        /too large|exceed|payload/i.test(uploadErr.message)
-      setError(isTooBig ? '文件过大，请减小文件后重试' : uploadErr.message)
+    setUploadProgress(0)
+    try {
+      await resumableUpload(supabase, 'videos', storagePath, file, setUploadProgress)
+    } catch (err: any) {
+      const httpStatus = (err as any)?.originalResponse?.getStatus?.()
+      const isTooBig = httpStatus === 413 || /too large|exceed/i.test(err.message ?? '')
+      setError(isTooBig ? '文件过大，请减小文件后重试' : (err.message ?? '上传失败'))
+      setUploadProgress(null)
       setSubmitting(false)
       return
     }
+    setUploadProgress(null)
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId,
@@ -270,6 +273,14 @@ export default function EditorEditPage() {
               </div>
               <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
               {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
+              {uploadProgress !== null && (
+                <div>
+                  <div style={{ height: 4, background: '#2a2a2a', borderRadius: 2 }}>
+                    <div style={{ height: 4, background: '#6ee7b7', borderRadius: 2, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
+                  </div>
+                  <p style={{ fontSize: 14, color: '#888', marginTop: 4 }}>{uploadProgress}%</p>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={submitting || !file}
