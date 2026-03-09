@@ -42,7 +42,7 @@ export default function GuestRecordPage() {
         .from('scripts')
         .select('id, script_text, reference_id, ref:references!reference_id(run_ref_id)')
         .eq('id', scriptId).single()
-      setScript((sc as Script) ?? null)
+      setScript((sc as unknown as Script) ?? null)
       setCurrentScriptText(sc?.script_text ?? '')
 
       const { data: task } = await supabase
