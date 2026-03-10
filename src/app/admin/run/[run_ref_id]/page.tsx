@@ -46,6 +46,13 @@ type GuestProfile = {
   display_name: string | null
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  SUBMITTED: '已提交',
+  PARSED: '已解析',
+  APPROVED: '已通过',
+  DONE: '已完成',
+}
+
 export default function AdminRunPage() {
   const router = useRouter()
   const { run_ref_id } = useParams<{ run_ref_id: string }>()
@@ -220,7 +227,7 @@ export default function AdminRunPage() {
         })
         .select('id')
         .single()
-      if (error || !newScript) { setActionMsg(error?.message ?? 'Failed to create script'); return }
+      if (error || !newScript) { setActionMsg(error?.message ?? '创建脚本失败'); return }
       scriptId = newScript.id
     } else {
       await supabase.from('scripts').update({ script_text: finalScriptText, guest_id: selectedGuestIds[0] }).eq('id', scriptId)
@@ -339,8 +346,29 @@ export default function AdminRunPage() {
     setActionMsg('成片已审核通过，本次任务完成。')
   }
 
-  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
-  if (!reference) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Run not found.</div>
+  if (loading) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="shell">
+          <div className="loading-state">
+            <span className="dot" /><span className="dot" style={{ animationDelay: '.15s' }} /><span className="dot" style={{ animationDelay: '.3s' }} />
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (!reference) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="shell">
+          <div style={{ padding: 48, color: 'var(--text-muted)' }}>任务不存在。</div>
+        </div>
+      </>
+    )
+  }
 
   const openTask = tasks.find(t => t.status === 'OPEN')
   const raws = deliverables.filter(d => d.type === 'raw')
@@ -353,251 +381,254 @@ export default function AdminRunPage() {
   const reviewFinalDone = tasks.some(t => t.type === 'REVIEW_FINAL_CUT' && t.status === 'DONE')
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
-        <button onClick={() => router.push('/admin/inbox')} style={{ fontSize: 18, marginBottom: 36, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: '#888' }}>
-          ← 工作台
-        </button>
+    <>
+      <style>{css}</style>
+      <div className="shell">
 
-        <h1 style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700, marginBottom: 6 }}>{decoded_run_ref_id}</h1>
-        <p style={{ fontSize: 20, color: '#555', marginBottom: 48 }}>状态：{reference.status}</p>
-
-        <Section title="参考素材">
-          <p style={{ fontSize: 20, color: '#888', marginBottom: 6 }}>
-            <a href={reference.url} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>{reference.url}</a>
-          </p>
-        </Section>
-
-        <Section title="选择嘉宾">
-            <GuestCheckboxes guests={guests} selectedIds={selectedGuestIds} onToggle={toggleGuest} />
-        </Section>
-
-        <Section title="脚本">
-          {openTask?.type === 'REVIEW_REFERENCE' && (reference.status === 'SUBMITTED' || reference.status === 'PARSED') ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ position: 'relative' }}>
-                <textarea
-                  placeholder="输入脚本内容..."
-                  value={scriptText}
-                  onChange={e => setScriptText(e.target.value)}
-                  rows={8}
-                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 20, padding: 15, paddingBottom: 32, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
-                />
-                <span style={{ position: 'absolute', bottom: 8, right: 12, fontSize: 13, color: '#444', pointerEvents: 'none' }}>
-                  {scriptText.trim().length} 字
-                </span>
-              </div>
-              <button onClick={() => action(saveDraftScript)} style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
-                保存草稿
-              </button>
-              {reference.status === 'PARSED' && (
-                <>
-                  <textarea
-                    placeholder="追加说明（可选）：例如「语气轻松一点」「强调产品差异化」"
-                    value={extraInstructions}
-                    onChange={e => setExtraInstructions(e.target.value)}
-                    rows={3}
-                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 18, padding: 12, background: '#111', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical' }}
-                  />
-                  <div style={{ display: 'flex', gap: 12 }}>
-                    <input
-                      type="number"
-                      value={genTargetChars}
-                      onChange={e => setGenTargetChars(Math.min(2000, Math.max(100, Number(e.target.value))))}
-                      placeholder="目标字数"
-                      min={100}
-                      max={2000}
-                      step={100}
-                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
-                    />
-                    <select
-                      value={genPlatform}
-                      onChange={e => setGenPlatform(e.target.value)}
-                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
-                    >
-                      <option value="wechat">微信视频号</option>
-                      <option value="xhs">小红书</option>
-                      <option value="tiktok">抖音</option>
-                      <option value="youtube">YouTube</option>
-                    </select>
-                    <select
-                      value={genFormat}
-                      onChange={e => setGenFormat(e.target.value)}
-                      style={{ flex: 1, padding: '9px 12px', fontSize: 17, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none' }}
-                    >
-                      <option value="voice_over">自述</option>
-                      <option value="on_camera">口播</option>
-                    </select>
-                  </div>
-                  <button
-                    onClick={generateScript}
-                    disabled={generating}
-                    style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: generating ? '#555' : '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}
-                  >
-                    {generating ? 'AI 生成中...' : 'AI 生成脚本'}
-                  </button>
-                  {(genPart1 || genPart2) && (
-                    <>
-                      <p style={{ fontSize: 15, color: '#555', margin: '8px 0 4px' }}>脚本正文 <span style={{ color: '#444' }}>({genPart1.trim().length} 字)</span></p>
-                      <textarea
-                        value={genPart1}
-                        onChange={e => setGenPart1(e.target.value)}
-                        rows={10}
-                        style={{ fontSize: 18, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#0a0a0a', color: '#ccc', outline: 'none' }}
-                      />
-                      <p style={{ fontSize: 15, color: '#555', margin: '8px 0 4px' }}>引用依据</p>
-                      <textarea
-                        readOnly
-                        value={genPart2}
-                        rows={6}
-                        style={{ fontSize: 16, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#0a0a0a', color: '#666', outline: 'none' }}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          ) : script ? (
+        <header className="header">
+          <div className="header-left">
+            <div className="brand-mark">U</div>
             <div>
-              <p style={{ fontSize: 18, color: '#555', marginBottom: 12 }}>Status: {script.status}</p>
-              {openTask?.type === 'REVIEW_SCRIPT' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <h1 className="brand-title">UMI</h1>
+              <p className="brand-sub">管理员工作台</p>
+            </div>
+          </div>
+          <nav className="header-nav">
+            <button className="nav-btn" onClick={() => router.push('/admin/inbox')}>← 工作台</button>
+            <button className="nav-btn nav-btn--ghost" onClick={async () => { await supabase.auth.signOut(); router.replace('/login') }}>退出</button>
+          </nav>
+        </header>
+
+        <main className="main">
+          <div className="run-ref">{decoded_run_ref_id}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+            <span className="status-badge">{STATUS_LABEL[reference.status] ?? reference.status}</span>
+            {openTask && <span className="open-task-badge">{openTask.type}</span>}
+          </div>
+
+          {/* 参考素材 */}
+          <Section title="参考素材">
+            <a href={reference.url} target="_blank" rel="noopener noreferrer" className="ref-link">
+              {reference.url}
+            </a>
+          </Section>
+
+          {/* 选择嘉宾 */}
+          <Section title="选择嘉宾">
+            <div className="guest-chips">
+              {guests.map(g => {
+                const checked = selectedGuestIds.includes(g.id)
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`guest-chip ${checked ? 'guest-chip--active' : ''}`}
+                    onClick={() => toggleGuest(g.id)}
+                  >
+                    {g.display_name ?? g.email ?? g.id}
+                  </button>
+                )
+              })}
+            </div>
+          </Section>
+
+          {/* 脚本 */}
+          <Section title="脚本">
+            {openTask?.type === 'REVIEW_REFERENCE' && (reference.status === 'SUBMITTED' || reference.status === 'PARSED') ? (
+              <div className="script-editor">
+                <div className="textarea-wrap">
                   <textarea
+                    className="ctrl-textarea"
+                    placeholder="输入脚本内容..."
                     value={scriptText}
                     onChange={e => setScriptText(e.target.value)}
-                    rows={10}
-                    style={{ fontSize: 20, padding: 15, border: '1px solid #2a2a2a', resize: 'vertical', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
+                    rows={8}
                   />
-                  <button onClick={() => action(saveScript)} style={{ padding: '9px 24px', fontSize: 18, background: '#1a1a1a', color: '#f0f0f0', border: '1px solid #2a2a2a', cursor: 'pointer', textAlign: 'left' }}>
-                    保存脚本
-                  </button>
+                  <span className="char-count">{scriptText.trim().length} 字</span>
                 </div>
+                <button className="btn-ghost" onClick={() => action(saveDraftScript)}>保存草稿</button>
+
+                {reference.status === 'PARSED' && (
+                  <div className="ai-panel">
+                    <p className="ai-panel-label">AI 辅助生成</p>
+                    <textarea
+                      className="ctrl-textarea"
+                      placeholder="追加说明（可选）：例如「语气轻松一点」「强调产品差异化」"
+                      value={extraInstructions}
+                      onChange={e => setExtraInstructions(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="ai-controls">
+                      <input
+                        type="number"
+                        className="ctrl-input"
+                        value={genTargetChars}
+                        onChange={e => setGenTargetChars(Math.min(2000, Math.max(100, Number(e.target.value))))}
+                        placeholder="目标字数"
+                        min={100} max={2000} step={100}
+                      />
+                      <select
+                        className="ctrl-select"
+                        value={genPlatform}
+                        onChange={e => setGenPlatform(e.target.value)}
+                      >
+                        <option value="wechat">微信视频号</option>
+                        <option value="xhs">小红书</option>
+                        <option value="tiktok">抖音</option>
+                        <option value="youtube">YouTube</option>
+                      </select>
+                      <select
+                        className="ctrl-select"
+                        value={genFormat}
+                        onChange={e => setGenFormat(e.target.value)}
+                      >
+                        <option value="voice_over">自述</option>
+                        <option value="on_camera">口播</option>
+                      </select>
+                    </div>
+                    <button className="btn-ghost" onClick={generateScript} disabled={generating}>
+                      {generating ? 'AI 生成中…' : 'AI 生成脚本'}
+                    </button>
+                    {(genPart1 || genPart2) && (
+                      <>
+                        <p className="gen-label">脚本正文 <span className="gen-char-count">({genPart1.trim().length} 字)</span></p>
+                        <textarea
+                          className="ctrl-textarea ctrl-textarea--output"
+                          value={genPart1}
+                          onChange={e => setGenPart1(e.target.value)}
+                          rows={10}
+                        />
+                        <p className="gen-label">引用依据</p>
+                        <textarea
+                          className="ctrl-textarea ctrl-textarea--ref"
+                          readOnly
+                          value={genPart2}
+                          rows={6}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : script ? (
+              <div className="script-editor">
+                <span className="script-status-badge">{script.status}</span>
+                {openTask?.type === 'REVIEW_SCRIPT' ? (
+                  <>
+                    <div className="textarea-wrap">
+                      <textarea
+                        className="ctrl-textarea"
+                        value={scriptText}
+                        onChange={e => setScriptText(e.target.value)}
+                        rows={10}
+                      />
+                      <span className="char-count">{scriptText.trim().length} 字</span>
+                    </div>
+                    <button className="btn-ghost" onClick={() => action(saveScript)}>保存脚本</button>
+                  </>
+                ) : (
+                  <pre className="script-pre">{script.script_text}</pre>
+                )}
+              </div>
+            ) : (
+              <p className="empty-text">暂无脚本。</p>
+            )}
+          </Section>
+
+          {/* 视频文件 */}
+          <Section title="视频文件">
+            {raws.length > 0
+              ? raws.map((d, i) => <DeliverableRow key={d.id} label={raws.length > 1 ? `原片 ${i + 1}` : '原片'} d={d} />)
+              : <p className="empty-text">暂无原片。</p>}
+            {final
+              ? <DeliverableRow label="成片" d={final} />
+              : <p className="empty-text" style={{ marginTop: 8 }}>暂无成片。</p>}
+          </Section>
+
+          {/* 任务进度 */}
+          {userRole === 'admin' && (
+            <Section title="任务进度">
+              {tasks.length === 0 ? (
+                <p className="empty-text">暂无任务。</p>
               ) : (
-                <pre style={{ fontSize: 20, whiteSpace: 'pre-wrap', background: '#1a1a1a', padding: 18, color: '#f0f0f0', border: '1px solid #2a2a2a' }}>{script.script_text}</pre>
-              )}
-            </div>
-          ) : (
-            <p style={{ fontSize: 20, color: '#555' }}>暂无脚本。</p>
-          )}
-        </Section>
-
-        <Section title="视频文件">
-          {raws.length > 0
-            ? raws.map((d, i) => <DeliverableRow key={d.id} label={raws.length > 1 ? `原片 ${i + 1}` : '原片'} d={d} />)
-            : <p style={{ fontSize: 20, color: '#555' }}>暂无原片。</p>}
-          {final ? <DeliverableRow label="成片" d={final} /> : <p style={{ fontSize: 20, color: '#555', marginTop: 12 }}>暂无成片。</p>}
-        </Section>
-
-        {userRole === 'admin' && <Section title="任务进度">
-          {tasks.length === 0
-            ? <p style={{ fontSize: 20, color: '#555' }}>暂无任务。</p>
-            : tasks.map(t => (
-              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, padding: '9px 0', borderBottom: '1px solid #1e1e1e' }}>
-                <span style={{ color: '#f0f0f0' }}>{t.type}</span>
-                <span style={{ color: t.status === 'DONE' ? '#4ade80' : t.status === 'BLOCKED' ? '#f87171' : '#888' }}>{t.status}</span>
-              </div>
-            ))
-          }
-        </Section>}
-
-        {userRole === 'admin' && <Section title="操作">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {reference.status === 'SUBMITTED' && (
-              <ActionBtn label="参考素材已解析" onClick={markParsed} />
-            )}
-            {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
-              <ActionBtn label="审核通过参考素材（创建脚本）" onClick={() => action(approveReference)} />
-            )}
-            {script && (script.status === 'DRAFT' || script.status === 'IN_REVIEW') && openTask?.type === 'REVIEW_SCRIPT' && (
-              <ActionBtn label="审核通过脚本 → 发送给达人" onClick={() => action(approveScript)} />
-            )}
-            {recordDone && !editTaskExists && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <select
-                  value={selectedEditorId}
-                  onChange={e => setSelectedEditorId(e.target.value)}
-                  style={{ padding: '9px 15px', fontSize: 20, border: '1px solid #2a2a2a', background: '#1a1a1a', color: '#f0f0f0', outline: 'none' }}
-                >
-                  <option value="">— 选择剪辑师 —</option>
-                  {editors.map(ed => (
-                    <option key={ed.id} value={ed.id}>{ed.display_name ?? ed.email ?? ed.id}</option>
+                <div className="task-progress-list">
+                  {tasks.map(t => (
+                    <div key={t.id} className="task-progress-row">
+                      <span className="task-progress-type">{t.type}</span>
+                      <span className={`task-progress-status ${t.status === 'DONE' ? 'status--done' : t.status === 'BLOCKED' ? 'status--blocked' : 'status--open'}`}>
+                        {t.status}
+                      </span>
+                    </div>
                   ))}
-                </select>
-                <ActionBtn label="分配剪辑任务给剪辑师" onClick={() => action(createEditTask)} />
-              </div>
-            )}
-            {editDone && !reviewFinalExists && !reviewFinalDone && (
-              <ActionBtn label="创建成片审核任务" onClick={() => action(createReviewFinalCutTask)} />
-            )}
-            {openTask?.type === 'REVIEW_FINAL_CUT' && final && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <ActionBtn label="审核通过成片" onClick={() => action(approveFinalCut)} />
-                <textarea
-                  placeholder="驳回说明（必填）：例如「片头太长，请剪到5秒内」"
-                  value={rejectComment}
-                  onChange={e => setRejectComment(e.target.value)}
-                  rows={3}
-                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 18, padding: 12, background: '#111', color: '#f0f0f0', border: '1px solid #2a2a2a', outline: 'none', resize: 'vertical' }}
-                />
-                <button
-                  onClick={() => action(rejectFinalCut)}
-                  style={{ padding: '12px 24px', fontSize: 20, fontWeight: 600, background: '#111', color: '#f87171', border: '1px solid #f87171', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  驳回并退回剪辑
-                </button>
-              </div>
-            )}
-            {!openTask && tasks.length > 0 && script?.status === 'DONE' && (
-              <p style={{ fontSize: 20, color: '#4ade80' }}>本次任务已完成。</p>
-            )}
-          </div>
-          {actionMsg && <p style={{ fontSize: 20, color: '#4ade80', marginTop: 18 }}>{actionMsg}</p>}
-        </Section>}
-      </div>
-    </div>
-  )
-}
+                </div>
+              )}
+            </Section>
+          )}
 
-function GuestCheckboxes({ guests, selectedIds, onToggle }: { guests: GuestProfile[]; selectedIds: string[]; onToggle: (id: string) => void }) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-      {guests.map(g => {
-        const checked = selectedIds.includes(g.id)
-        return (
-          <button
-            key={g.id}
-            type="button"
-            onClick={() => onToggle(g.id)}
-            style={{
-              padding: '6px 15px', fontSize: 18, cursor: 'pointer',
-              background: checked ? '#f0f0f0' : '#1a1a1a',
-              color: checked ? '#111' : '#888',
-              border: '1px solid #2a2a2a',
-              fontWeight: checked ? 600 : 400,
-            }}
-          >
-            {g.display_name ?? g.email ?? g.id}
-          </button>
-        )
-      })}
-    </div>
+          {/* 操作 */}
+          {userRole === 'admin' && (
+            <Section title="操作">
+              <div className="actions-list">
+                {reference.status === 'SUBMITTED' && (
+                  <button className="action-primary" onClick={markParsed}>参考素材已解析</button>
+                )}
+                {reference.status === 'PARSED' && openTask?.type === 'REVIEW_REFERENCE' && (
+                  <button className="action-primary" onClick={() => action(approveReference)}>审核通过参考素材（创建脚本）</button>
+                )}
+                {script && (script.status === 'DRAFT' || script.status === 'IN_REVIEW') && openTask?.type === 'REVIEW_SCRIPT' && (
+                  <button className="action-primary" onClick={() => action(approveScript)}>审核通过脚本 → 发送给达人</button>
+                )}
+                {recordDone && !editTaskExists && (
+                  <div className="editor-select-group">
+                    <select
+                      className="ctrl-select ctrl-select--full"
+                      value={selectedEditorId}
+                      onChange={e => setSelectedEditorId(e.target.value)}
+                    >
+                      <option value="">— 选择剪辑师 —</option>
+                      {editors.map(ed => (
+                        <option key={ed.id} value={ed.id}>{ed.display_name ?? ed.email ?? ed.id}</option>
+                      ))}
+                    </select>
+                    <button className="action-primary" onClick={() => action(createEditTask)}>分配剪辑任务给剪辑师</button>
+                  </div>
+                )}
+                {editDone && !reviewFinalExists && !reviewFinalDone && (
+                  <button className="action-primary" onClick={() => action(createReviewFinalCutTask)}>创建成片审核任务</button>
+                )}
+                {openTask?.type === 'REVIEW_FINAL_CUT' && final && (
+                  <>
+                    <button className="action-primary" onClick={() => action(approveFinalCut)}>审核通过成片</button>
+                    <textarea
+                      className="ctrl-textarea"
+                      placeholder="驳回说明（必填）：例如「片头太长，请剪到5秒内」"
+                      value={rejectComment}
+                      onChange={e => setRejectComment(e.target.value)}
+                      rows={3}
+                    />
+                    <button className="action-danger" onClick={() => action(rejectFinalCut)}>驳回并退回剪辑</button>
+                  </>
+                )}
+                {!openTask && tasks.length > 0 && script?.status === 'DONE' && (
+                  <p className="done-msg">本次任务已完成。</p>
+                )}
+              </div>
+              {actionMsg && <p className="action-msg">{actionMsg}</p>}
+            </Section>
+          )}
+
+        </main>
+      </div>
+    </>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 48 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, marginBottom: 18, color: '#444' }}>{title}</h2>
+    <div className="run-section">
+      <h2 className="run-section-title">{title}</h2>
       {children}
     </div>
-  )
-}
-
-function ActionBtn({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{ padding: '12px 24px', fontSize: 20, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-      {label}
-    </button>
   )
 }
 
@@ -609,9 +640,7 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
   async function openSignedUrl() {
     if (!d.storage_path) return
     setLoadingUrl(true)
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(d.storage_path, 3600)
+    const { data, error } = await supabase.storage.from('videos').createSignedUrl(d.storage_path, 3600)
     setLoadingUrl(false)
     if (error || !data?.signedUrl) { alert('无法生成访问链接：' + (error?.message ?? '')); return }
     window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
@@ -620,9 +649,7 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
   async function downloadFile() {
     if (!d.storage_path) return
     setLoadingDownload(true)
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(d.storage_path, 3600)
+    const { data, error } = await supabase.storage.from('videos').createSignedUrl(d.storage_path, 3600)
     if (error || !data?.signedUrl) { setLoadingDownload(false); alert('无法生成下载链接：' + (error?.message ?? '')); return }
     const res = await fetch(data.signedUrl)
     const blob = await res.blob()
@@ -636,32 +663,148 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
   }
 
   return (
-    <div style={{ padding: '12px 0', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 18, fontWeight: 600, color: '#888' }}>{label}</span>
-      <span style={{ fontSize: 20 }}>{d.file_label ?? '未命名文件'}</span>
+    <div className="deliverable-row">
+      <div className="deliverable-meta">
+        <span className="deliverable-label">{label}</span>
+        <span className="deliverable-name">{d.file_label ?? '未命名文件'}</span>
+      </div>
       {d.storage_path ? (
-        <>
-          <button
-            onClick={openSignedUrl}
-            disabled={loadingUrl}
-            style={{ fontSize: 18, padding: '4px 14px', background: '#1a1a1a', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingUrl ? 'wait' : 'pointer' }}
-          >
+        <div className="deliverable-actions">
+          <button className="file-btn file-btn--view" onClick={openSignedUrl} disabled={loadingUrl}>
             {loadingUrl ? '生成中…' : '查看'}
           </button>
-          <button
-            onClick={downloadFile}
-            disabled={loadingDownload}
-            style={{ fontSize: 18, padding: '4px 14px', background: '#1a1a1a', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingDownload ? 'wait' : 'pointer' }}
-          >
+          <button className="file-btn file-btn--dl" onClick={downloadFile} disabled={loadingDownload}>
             {loadingDownload ? '生成中…' : '下载'}
           </button>
-        </>
+        </div>
       ) : (
-        <>
-          <a href={d.baidu_share_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 20, color: '#60a5fa' }}>{d.baidu_share_url}</a>
-          {d.baidu_extract_code && <span style={{ fontSize: 18, color: '#555' }}>Code: {d.baidu_extract_code}</span>}
-        </>
+        <div className="deliverable-actions">
+          <a href={d.baidu_share_url} target="_blank" rel="noopener noreferrer" className="file-btn file-btn--view">{d.baidu_share_url}</a>
+          {d.baidu_extract_code && <span className="deliverable-code">码：{d.baidu_extract_code}</span>}
+        </div>
       )}
     </div>
   )
 }
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0c0c; --surface: #141414; --surface2: #1c1c1c;
+    --border: #242424; --border2: #2e2e2e;
+    --text: #e8e4dc; --text-muted: #5a5650; --text-dim: #3a3834;
+    --amber: #e8a020; --amber-dim: #c4861a; --amber-glow: rgba(232,160,32,0.08);
+    --green: #5a8a6a; --red: #c0504a; --blue: #4a80c0;
+    --mono: 'IBM Plex Mono', monospace; --serif: 'Noto Serif SC', serif;
+  }
+  body { background: var(--bg); color: var(--text); }
+  .shell { min-height: 100vh; background: var(--bg); font-family: var(--mono); }
+
+  .loading-state { display: flex; align-items: center; justify-content: center; min-height: 100vh; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.2;transform:scale(.8);} 50%{opacity:1;transform:scale(1);} }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(12,12,12,.95); backdrop-filter: blur(8px); z-index: 10; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand-mark { width: 36px; height: 36px; background: var(--amber); color: #000; font-family: var(--serif); font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .brand-title { font-family: var(--serif); font-size: 18px; font-weight: 700; letter-spacing: .05em; line-height: 1; color: var(--text); }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: .1em; margin-top: 3px; }
+  .header-nav { display: flex; align-items: center; gap: 8px; }
+  .nav-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: color .15s, border-color .15s; white-space: nowrap; }
+  .nav-btn:hover { color: var(--text); border-color: var(--border2); }
+  .nav-btn--ghost { background: none; border-color: transparent; }
+  .nav-btn--ghost:hover { border-color: var(--border); }
+
+  .main { max-width: 800px; margin: 0 auto; padding: 32px 16px 80px; }
+  .run-ref { font-family: var(--serif); font-size: clamp(20px,5vw,28px); font-weight: 700; color: var(--text); margin-bottom: 10px; }
+
+  .status-badge { font-size: 11px; padding: 3px 10px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); letter-spacing: .06em; }
+  .open-task-badge { font-size: 11px; padding: 3px 10px; background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(232,160,32,.3); letter-spacing: .04em; }
+
+  /* Sections */
+  .run-section { margin-bottom: 44px; }
+  .run-section-title { font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+  .ref-link { font-size: 13px; color: var(--blue); word-break: break-all; }
+  .ref-link:hover { text-decoration: underline; }
+  .empty-text { font-size: 13px; color: var(--text-dim); }
+
+  /* Guest chips */
+  .guest-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .guest-chip { padding: 7px 14px; font-family: var(--mono); font-size: 13px; cursor: pointer; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); transition: all .15s; }
+  .guest-chip:hover { color: var(--text); border-color: var(--border2); }
+  .guest-chip--active { background: var(--amber); color: #000; border-color: var(--amber); font-weight: 600; }
+
+  /* Script editor */
+  .script-editor { display: flex; flex-direction: column; gap: 10px; }
+  .script-status-badge { font-size: 11px; padding: 3px 10px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); width: fit-content; letter-spacing: .06em; }
+  .textarea-wrap { position: relative; }
+  .ctrl-textarea { width: 100%; font-family: var(--mono); font-size: 14px; padding: 12px 14px; padding-bottom: 28px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); outline: none; resize: vertical; transition: border-color .15s; line-height: 1.6; }
+  .ctrl-textarea:focus { border-color: var(--amber); }
+  .ctrl-textarea::placeholder { color: var(--text-dim); }
+  .ctrl-textarea--output { background: #060606; color: #dedad2; }
+  .ctrl-textarea--ref { background: #060606; color: var(--text-muted); font-size: 13px; }
+  .char-count { position: absolute; bottom: 8px; right: 12px; font-size: 11px; color: var(--text-dim); pointer-events: none; }
+  .btn-ghost { padding: 10px 16px; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text-muted); background: none; border: 1px solid var(--border); cursor: pointer; transition: color .15s, border-color .15s; }
+  .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border2); }
+  .btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+  .script-pre { font-family: var(--serif); font-size: clamp(15px,2.5vw,18px); white-space: pre-wrap; background: var(--surface2); color: var(--text); padding: 20px; line-height: 1.8; border: 1px solid var(--border); }
+
+  /* AI panel */
+  .ai-panel { padding: 16px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .ai-panel-label { font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--text-muted); }
+  .ai-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ctrl-input { flex: 1; min-width: 80px; padding: 9px 12px; font-family: var(--mono); font-size: 13px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); outline: none; }
+  .ctrl-input:focus { border-color: var(--amber); }
+  .ctrl-select { flex: 1; min-width: 100px; padding: 9px 12px; font-family: var(--mono); font-size: 13px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); outline: none; cursor: pointer; }
+  .ctrl-select:focus { border-color: var(--amber); }
+  .ctrl-select--full { width: 100%; }
+  .gen-label { font-size: 11px; color: var(--text-muted); letter-spacing: .06em; margin-top: 4px; }
+  .gen-char-count { color: var(--text-dim); }
+
+  /* Deliverables */
+  .deliverable-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .deliverable-meta { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
+  .deliverable-label { font-size: 11px; color: var(--text-muted); letter-spacing: .06em; flex-shrink: 0; }
+  .deliverable-name { font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deliverable-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .file-btn { padding: 6px 14px; font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); transition: color .15s, border-color .15s; text-decoration: none; }
+  .file-btn:disabled { opacity: .5; cursor: wait; }
+  .file-btn--view { color: var(--blue); }
+  .file-btn--view:hover:not(:disabled) { border-color: var(--blue); }
+  .file-btn--dl { color: var(--green); }
+  .file-btn--dl:hover:not(:disabled) { border-color: var(--green); }
+  .deliverable-code { font-size: 12px; color: var(--text-muted); }
+
+  /* Task progress */
+  .task-progress-list { display: flex; flex-direction: column; }
+  .task-progress-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .task-progress-type { font-size: 13px; color: var(--text-muted); letter-spacing: .04em; }
+  .task-progress-status { font-size: 11px; padding: 2px 8px; letter-spacing: .06em; }
+  .status--done { background: rgba(90,138,106,.12); color: var(--green); }
+  .status--blocked { background: rgba(192,80,74,.12); color: var(--red); }
+  .status--open { background: var(--amber-glow); color: var(--amber); }
+
+  /* Actions */
+  .actions-list { display: flex; flex-direction: column; gap: 10px; }
+  .action-primary { padding: 13px 18px; font-family: var(--mono); font-size: 14px; font-weight: 600; color: #000; background: var(--amber); border: none; cursor: pointer; text-align: left; transition: background .15s; }
+  .action-primary:hover { background: #f0ac30; }
+  .action-danger { padding: 13px 18px; font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--red); background: none; border: 1px solid var(--red); cursor: pointer; text-align: left; transition: background .15s; }
+  .action-danger:hover { background: rgba(192,80,74,.08); }
+  .editor-select-group { display: flex; flex-direction: column; gap: 8px; }
+  .done-msg { font-size: 14px; color: var(--green); padding: 12px 0; }
+  .action-msg { font-size: 13px; color: var(--green); padding: 10px 14px; border-left: 2px solid var(--green); background: rgba(90,138,106,.1); margin-top: 14px; }
+
+  @media (max-width: 480px) {
+    .header { padding: 12px 16px; }
+    .brand-mark { width: 32px; height: 32px; font-size: 16px; }
+    .brand-title { font-size: 16px; }
+    .main { padding: 20px 12px 80px; }
+    .ai-controls { flex-direction: column; }
+    .ctrl-input, .ctrl-select { width: 100%; }
+    .deliverable-row { flex-direction: column; align-items: flex-start; }
+    .deliverable-actions { width: 100%; }
+    .file-btn { flex: 1; text-align: center; }
+  }
+`

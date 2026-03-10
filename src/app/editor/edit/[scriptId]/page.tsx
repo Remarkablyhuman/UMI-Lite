@@ -20,6 +20,7 @@ export default function EditorEditPage() {
   const [taskDone, setTaskDone] = useState(false)
   const [taskComment, setTaskComment] = useState<string | null>(null)
   const [scriptText, setScriptText] = useState<string | null>(null)
+  const [runRefId, setRunRefId] = useState<string | null>(null)
   const [rawDeliverables, setRawDeliverables] = useState<{ storage_path: string; file_label: string | null }[]>([])
   const [loadingRawIdx, setLoadingRawIdx] = useState<{ idx: number; action: 'view' | 'dl' } | null>(null)
   const [finalStoragePath, setFinalStoragePath] = useState<string | null>(null)
@@ -49,10 +50,11 @@ export default function EditorEditPage() {
 
       const { data: sc } = await supabase
         .from('scripts')
-        .select('script_text')
+        .select('script_text, reference_id, ref:references!reference_id(run_ref_id)')
         .eq('id', scriptId)
         .single()
-      setScriptText(sc?.script_text ?? null)
+      setScriptText((sc as any)?.script_text ?? null)
+      setRunRefId((sc as any)?.ref?.run_ref_id ?? null)
 
       const { data: rawDels } = await supabase
         .from('deliverables')
@@ -129,12 +131,10 @@ export default function EditorEditPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
     if (!file) { setError('请选择视频文件'); return }
     if (!userId) return
 
     setSubmitting(true)
-
     const timestamp = Date.now()
     const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '') : ''
     const storagePath = `final/${scriptId}/${timestamp}${ext}`
@@ -170,129 +170,235 @@ export default function EditorEditPage() {
     router.replace('/editor/inbox')
   }
 
-  if (loading) return <div style={{ padding: 'clamp(16px, 5vw, 48px)', background: '#111', minHeight: '100vh', color: '#f0f0f0' }}>Loading...</div>
+  if (loading) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="shell">
+          <div className="loading-state">
+            <span className="dot" /><span className="dot" style={{ animationDelay: '.15s' }} /><span className="dot" style={{ animationDelay: '.3s' }} />
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'clamp(16px, 5vw, 48px)', fontFamily: 'monospace', boxSizing: 'border-box' }}>
-        <button onClick={() => router.push('/editor/inbox')} style={{ fontSize: 18, marginBottom: 36, cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: '#888' }}>
-          ← 返回
-        </button>
+    <>
+      <style>{css}</style>
+      <div className="shell">
 
-        <h1 style={{ fontSize: 'clamp(18px, 4vw, 27px)', fontWeight: 700, marginBottom: 24 }}>{taskDone ? '已完成剪辑' : '提交成片'}</h1>
-
-        {taskComment && !taskDone && (
-          <div style={{ marginBottom: 36, padding: '18px 24px', background: '#1a0000', border: '1px solid #7f1d1d' }}>
-            <p style={{ fontSize: 15, color: '#f87171', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>返工说明</p>
-            <p style={{ fontSize: 20, color: '#fca5a5', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{taskComment}</p>
+        <header className="header">
+          <div className="header-left">
+            <div className="brand-mark">U</div>
+            <div>
+              <h1 className="brand-title">UMI</h1>
+              <p className="brand-sub">剪辑工作台</p>
+            </div>
           </div>
-        )}
+          <nav className="header-nav">
+            <button className="nav-btn" onClick={() => router.push('/editor/inbox')}>← 任务</button>
+            <button className="nav-btn nav-btn--ghost" onClick={async () => { await supabase.auth.signOut(); router.replace('/login') }}>退出</button>
+          </nav>
+        </header>
 
-        {scriptText && (
-          <pre style={{ fontSize: 'clamp(16px, 3vw, 20px)', whiteSpace: 'pre-wrap', background: '#000', color: '#f0f0f0', padding: 'clamp(16px, 4vw, 36px)', marginBottom: 48, lineHeight: 1.8, border: '1px solid #2a2a2a' }}>
-            {scriptText}
-          </pre>
-        )}
+        <main className="main">
+          {runRefId && <div className="run-ref">{runRefId}</div>}
+          <p className="run-meta">{taskDone ? '已完成剪辑。' : '下载原片后完成剪辑，上传成片文件。'}</p>
 
-        {taskDone ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
-              <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>原片</p>
-              {rawDeliverables.length > 0 ? rawDeliverables.map((d, i) => {
-                const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
-                const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
-                return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
-                    <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? '未命名文件'}</span>
-                    <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
-                      style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
+          {/* 返工说明 */}
+          {taskComment && !taskDone && (
+            <div className="rework-banner">
+              <p className="rework-label">返工说明</p>
+              <p className="rework-text">{taskComment}</p>
+            </div>
+          )}
+
+          {/* 原片 */}
+          <div className="deliverables-section">
+            <p className="section-label">原片 ({rawDeliverables.length})</p>
+            {rawDeliverables.length > 0 ? rawDeliverables.map((d, i) => {
+              const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
+              const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
+              return (
+                <div key={i} className="deliverable-row">
+                  <span className="deliverable-name">{d.file_label ?? '未命名文件'}</span>
+                  <div className="deliverable-actions">
+                    <button className="file-btn file-btn--view" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}>
                       {isViewing ? '生成中…' : '查看'}
                     </button>
-                    <button type="button" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}
-                      style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: isDling ? 'wait' : 'pointer' }}>
+                    <button className="file-btn file-btn--dl" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}>
                       {isDling ? '生成中…' : '下载'}
                     </button>
                   </div>
-                )
-              }) : <p style={{ fontSize: 20, color: '#555' }}>暂无记录。</p>}
-            </div>
-            <div style={{ padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
-              <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>成片</p>
+                </div>
+              )
+            }) : <p className="empty-row">暂无原片。</p>}
+          </div>
+
+          {/* 成片（已完成状态） */}
+          {taskDone && (
+            <div className="deliverables-section">
+              <p className="section-label">成片</p>
               {finalStoragePath ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <span style={{ fontSize: 20, flex: 1 }}>{finalFileLabel ?? '未命名文件'}</span>
-                  <button type="button" onClick={openFinalUrl} disabled={loadingFinalUrl} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingFinalUrl ? 'wait' : 'pointer' }}>
-                    {loadingFinalUrl ? '生成中…' : '查看'}
-                  </button>
-                  <button type="button" onClick={downloadFinalFile} disabled={loadingFinalDownload} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: loadingFinalDownload ? 'wait' : 'pointer' }}>
-                    {loadingFinalDownload ? '生成中…' : '下载'}
-                  </button>
+                <div className="deliverable-row">
+                  <span className="deliverable-name">{finalFileLabel ?? '未命名文件'}</span>
+                  <div className="deliverable-actions">
+                    <button className="file-btn file-btn--view" onClick={openFinalUrl} disabled={loadingFinalUrl}>
+                      {loadingFinalUrl ? '生成中…' : '查看'}
+                    </button>
+                    <button className="file-btn file-btn--dl" onClick={downloadFinalFile} disabled={loadingFinalDownload}>
+                      {loadingFinalDownload ? '生成中…' : '下载'}
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <p style={{ fontSize: 20, color: '#555' }}>暂无记录。</p>
+                <p className="empty-row">暂无记录。</p>
               )}
             </div>
-            {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
-          </div>
-        ) : (
-          <>
-            {rawDeliverables.length > 0 && (
-              <div style={{ marginBottom: 36, padding: '18px 24px', border: '1px solid #2a2a2a', background: '#1a1a1a' }}>
-                <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>原片</p>
-                {rawDeliverables.map((d, i) => {
-                  const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
-                  const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
-                      <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? '未命名文件'}</span>
-                      <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
-                        style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
-                        {isViewing ? '生成中…' : '查看'}
-                      </button>
-                      <button type="button" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}
-                        style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#a3e635', border: '1px solid #2a2a2a', cursor: isDling ? 'wait' : 'pointer' }}>
-                        {isDling ? '生成中…' : '下载'}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <input
-                type="text"
-                placeholder="文件名备注（可选，如 EP001-成片）"
-                value={fileLabel}
-                onChange={e => setFileLabel(e.target.value)}
-                style={{ padding: '12px 18px', fontSize: 21, border: '1px solid #2a2a2a', outline: 'none', background: '#1a1a1a', color: '#f0f0f0' }}
-              />
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{ padding: '24px 18px', border: '2px dashed #2a2a2a', background: '#1a1a1a', cursor: 'pointer', textAlign: 'center', fontSize: 20, color: file ? '#f0f0f0' : '#555' }}
-              >
-                {file ? `已选择：${file.name}` : '点击选择视频文件'}
-              </div>
-              <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
-              {error && <p style={{ color: '#f87171', fontSize: 20 }}>{error}</p>}
-              {uploadProgress !== null && (
-                <div>
-                  <div style={{ height: 4, background: '#2a2a2a', borderRadius: 2 }}>
-                    <div style={{ height: 4, background: '#6ee7b7', borderRadius: 2, width: `${uploadProgress}%`, transition: 'width 0.2s' }} />
-                  </div>
-                  <p style={{ fontSize: 14, color: '#888', marginTop: 4 }}>{uploadProgress}%</p>
+          )}
+
+          {/* 提交成片表单 */}
+          {!taskDone && (
+            <div className="upload-section">
+              <p className="section-label">提交成片</p>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="文件名备注（可选，如 EP001-成片）"
+                  value={fileLabel}
+                  onChange={e => setFileLabel(e.target.value)}
+                />
+                <div
+                  className={`dropzone ${file ? 'dropzone--selected' : ''}`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {file ? `已选择：${file.name}` : '点击选择视频文件'}
                 </div>
-              )}
-              <button
-                type="submit"
-                disabled={submitting || !file}
-                style={{ padding: '15px', fontSize: 21, fontWeight: 600, background: '#f0f0f0', color: '#111', border: 'none', cursor: submitting || !file ? 'not-allowed' : 'pointer', opacity: submitting || !file ? 0.6 : 1 }}
-              >
-                {submitting ? '上传中…' : '提交成片'}
-              </button>
-            </form>
-          </>
-        )}
+                <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
+
+                {error && <p className="msg-err">{error}</p>}
+
+                {uploadProgress !== null && (
+                  <div className="progress-wrap">
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <span className="progress-label">{uploadProgress}%</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className={`btn-finish ${submitting || !file ? 'btn-finish--disabled' : ''}`}
+                  disabled={submitting || !file}
+                >
+                  {submitting ? '上传中…' : '提交成片'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* 脚本 */}
+          {scriptText && (
+            <div className="script-section">
+              <p className="section-label">脚本内容</p>
+              <pre className="script-pre">{scriptText}</pre>
+            </div>
+          )}
+
+        </main>
       </div>
-    </div>
+    </>
   )
 }
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0c0c; --surface: #141414; --surface2: #1c1c1c;
+    --border: #242424; --border2: #2e2e2e;
+    --text: #e8e4dc; --text-muted: #5a5650; --text-dim: #3a3834;
+    --amber: #e8a020; --amber-dim: #c4861a; --amber-glow: rgba(232,160,32,0.08);
+    --green: #5a8a6a; --red: #c0504a; --blue: #4a80c0;
+    --mono: 'IBM Plex Mono', monospace; --serif: 'Noto Serif SC', serif;
+  }
+  body { background: var(--bg); color: var(--text); }
+
+  .shell { min-height: 100vh; background: var(--bg); font-family: var(--mono); }
+
+  .loading-state { display: flex; align-items: center; justify-content: center; min-height: 100vh; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .2; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(12,12,12,.95); backdrop-filter: blur(8px); z-index: 10; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .brand-mark { width: 36px; height: 36px; background: var(--amber); color: #000; font-family: var(--serif); font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .brand-title { font-family: var(--serif); font-size: 18px; font-weight: 700; letter-spacing: .05em; line-height: 1; color: var(--text); }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: .1em; margin-top: 3px; }
+  .header-nav { display: flex; align-items: center; gap: 8px; }
+  .nav-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: color .15s, border-color .15s; white-space: nowrap; }
+  .nav-btn:hover { color: var(--text); border-color: var(--border2); }
+  .nav-btn--ghost { background: none; border-color: transparent; }
+  .nav-btn--ghost:hover { border-color: var(--border); }
+
+  .main { max-width: 800px; margin: 0 auto; padding: 32px 16px 80px; }
+  .run-ref { font-family: var(--serif); font-size: clamp(20px,5vw,28px); font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .run-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+
+  .rework-banner { padding: 16px 20px; background: rgba(192,80,74,.08); border: 1px solid rgba(192,80,74,.3); border-left: 3px solid var(--red); margin-bottom: 28px; }
+  .rework-label { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--red); margin-bottom: 8px; }
+  .rework-text { font-size: 15px; color: #e8a0a0; line-height: 1.7; white-space: pre-wrap; }
+
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+
+  .deliverables-section { margin-bottom: 28px; }
+  .deliverable-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+  .deliverable-name { font-size: 14px; color: var(--text-muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deliverable-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .file-btn { padding: 6px 14px; font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); transition: color .15s, border-color .15s; }
+  .file-btn:disabled { opacity: .5; cursor: wait; }
+  .file-btn--view { color: var(--blue); }
+  .file-btn--view:hover:not(:disabled) { border-color: var(--blue); }
+  .file-btn--dl { color: var(--green); }
+  .file-btn--dl:hover:not(:disabled) { border-color: var(--green); }
+  .empty-row { font-size: 13px; color: var(--text-dim); padding: 10px 0; }
+
+  .upload-section { margin-bottom: 36px; }
+  .upload-section .section-label { margin-bottom: 16px; }
+
+  .form-input { width: 100%; font-family: var(--mono); font-size: 14px; padding: 10px 14px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); outline: none; transition: border-color .15s; }
+  .form-input:focus { border-color: var(--amber); }
+  .form-input::placeholder { color: var(--text-dim); }
+
+  .dropzone { padding: 28px 18px; border: 1px dashed var(--border2); background: var(--surface); cursor: pointer; text-align: center; font-size: 14px; color: var(--text-muted); transition: border-color .15s, color .15s; }
+  .dropzone:hover { border-color: var(--amber); color: var(--text); }
+  .dropzone--selected { color: var(--text); border-color: var(--border2); border-style: solid; }
+
+  .progress-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .progress-bar { height: 3px; background: var(--border); }
+  .progress-fill { height: 3px; background: var(--amber); transition: width .2s; }
+  .progress-label { font-size: 11px; color: var(--text-muted); }
+
+  .msg-err { font-size: 13px; color: var(--red); padding: 8px 12px; border-left: 2px solid var(--red); background: rgba(192,80,74,.1); }
+
+  .btn-finish { width: 100%; padding: 13px; font-family: var(--mono); font-size: 14px; font-weight: 600; color: #000; background: var(--amber); border: none; cursor: pointer; transition: background .15s; }
+  .btn-finish:hover:not(.btn-finish--disabled) { background: #f0ac30; }
+  .btn-finish--disabled { background: var(--surface2); color: var(--text-dim); cursor: not-allowed; }
+
+  .script-section { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .script-section .section-label { margin-bottom: 16px; }
+  .script-pre { font-family: var(--serif); font-size: clamp(16px,3vw,20px); white-space: pre-wrap; background: #060606; color: #dedad2; padding: clamp(16px,4vw,36px); line-height: 1.9; border: 1px solid var(--border); }
+
+  @media (max-width: 480px) {
+    .header { padding: 12px 16px; }
+    .brand-mark { width: 32px; height: 32px; font-size: 16px; }
+    .brand-title { font-size: 16px; }
+    .main { padding: 20px 12px 80px; }
+    .deliverable-row { flex-direction: column; align-items: flex-start; }
+    .deliverable-actions { width: 100%; }
+    .file-btn { flex: 1; text-align: center; }
+  }
+`
