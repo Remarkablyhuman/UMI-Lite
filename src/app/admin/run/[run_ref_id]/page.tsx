@@ -630,7 +630,7 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
-    a.download = d.file_label ?? d.storage_path.split('/').pop() ?? 'video'
+    a.download = d.file_label ?? 'video'
     a.click()
     URL.revokeObjectURL(blobUrl)
   }
@@ -638,7 +638,7 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
   return (
     <div style={{ padding: '12px 0', borderBottom: '1px solid #1e1e1e', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 18, fontWeight: 600, color: '#888' }}>{label}</span>
-      <span style={{ fontSize: 20 }}>{d.file_label}</span>
+      <span style={{ fontSize: 20 }}>{d.file_label ?? '未命名文件'}</span>
       {d.storage_path ? (
         <>
           <button

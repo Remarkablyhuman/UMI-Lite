@@ -70,7 +70,8 @@ export default function GuestRecordPage() {
     setSubmitting(true)
 
     const timestamp = Date.now()
-    const storagePath = `raw/${scriptId}/${timestamp}-${file.name}`
+    const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '') : ''
+    const storagePath = `raw/${scriptId}/${timestamp}${ext}`
     setUploadProgress(0)
     try {
       await resumableUpload(supabase, 'videos', storagePath, file, setUploadProgress)
@@ -167,7 +168,7 @@ export default function GuestRecordPage() {
               <p className="section-label">已上传原片 ({rawDeliverables.length})</p>
               {rawDeliverables.map((d, i) => (
                 <div key={i} className="deliverable-row">
-                  <span className="deliverable-name">{d.file_label ?? d.storage_path.split('/').pop()}</span>
+                  <span className="deliverable-name">{d.file_label ?? '未命名文件'}</span>
                   <span className="deliverable-check">✓</span>
                 </div>
               ))}

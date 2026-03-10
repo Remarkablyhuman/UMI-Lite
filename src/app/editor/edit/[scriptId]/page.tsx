@@ -96,7 +96,7 @@ export default function EditorEditPage() {
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
-    a.download = fileLabel ?? storagePath.split('/').pop() ?? 'video'
+    a.download = fileLabel ?? 'video'
     a.click()
     URL.revokeObjectURL(blobUrl)
   }
@@ -121,7 +121,7 @@ export default function EditorEditPage() {
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
-    a.download = finalFileLabel ?? finalStoragePath.split('/').pop() ?? 'video'
+    a.download = finalFileLabel ?? 'video'
     a.click()
     URL.revokeObjectURL(blobUrl)
   }
@@ -136,7 +136,8 @@ export default function EditorEditPage() {
     setSubmitting(true)
 
     const timestamp = Date.now()
-    const storagePath = `final/${scriptId}/${timestamp}-${file.name}`
+    const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '') : ''
+    const storagePath = `final/${scriptId}/${timestamp}${ext}`
 
     setUploadProgress(0)
     try {
@@ -202,7 +203,7 @@ export default function EditorEditPage() {
                 const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
-                    <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? d.storage_path.split('/').pop()}</span>
+                    <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? '未命名文件'}</span>
                     <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
                       style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
                       {isViewing ? '生成中…' : '查看'}
@@ -219,7 +220,7 @@ export default function EditorEditPage() {
               <p style={{ fontSize: 18, color: '#888', marginBottom: 12 }}>成片</p>
               {finalStoragePath ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <span style={{ fontSize: 20, flex: 1 }}>{finalFileLabel ?? finalStoragePath}</span>
+                  <span style={{ fontSize: 20, flex: 1 }}>{finalFileLabel ?? '未命名文件'}</span>
                   <button type="button" onClick={openFinalUrl} disabled={loadingFinalUrl} style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: loadingFinalUrl ? 'wait' : 'pointer' }}>
                     {loadingFinalUrl ? '生成中…' : '查看'}
                   </button>
@@ -243,7 +244,7 @@ export default function EditorEditPage() {
                   const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 0', borderBottom: '1px solid #1e1e1e' }}>
-                      <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? d.storage_path.split('/').pop()}</span>
+                      <span style={{ fontSize: 20, flex: 1 }}>{d.file_label ?? '未命名文件'}</span>
                       <button type="button" onClick={() => openRawUrl(d.storage_path, i)} disabled={!!loadingRawIdx}
                         style={{ fontSize: 18, padding: '6px 18px', background: '#111', color: '#60a5fa', border: '1px solid #2a2a2a', cursor: isViewing ? 'wait' : 'pointer' }}>
                         {isViewing ? '生成中…' : '查看'}
