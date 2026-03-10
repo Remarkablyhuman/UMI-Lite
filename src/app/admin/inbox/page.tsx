@@ -17,7 +17,7 @@ type Profile = {
 
 const STAGES = ['REVIEW_REFERENCE', 'REVIEW_SCRIPT', 'RECORD_VIDEO', 'EDIT_VIDEO'] as const
 const STAGE_LABELS: Record<string, string> = {
-  REVIEW_REFERENCE: '审核',
+  REVIEW_REFERENCE: '选题',
   REVIEW_SCRIPT:    '脚本',
   RECORD_VIDEO:     '录制',
   EDIT_VIDEO:       '剪辑',
@@ -62,6 +62,14 @@ export default function AdminInbox() {
       const current = map[refId][t.type]
       // DONE wins over OPEN
       if (current !== 'DONE') map[refId][t.type] = t.status === 'DONE' ? 'DONE' : 'OPEN'
+    }
+    // For guest-created references (status='APPROVED'), infer REVIEW_REFERENCE as DONE
+    // since guests cannot insert tasks (RLS), so no task record exists for this stage.
+    for (const r of refList) {
+      if (r.status === 'APPROVED') {
+        if (!map[r.id]) map[r.id] = {}
+        map[r.id]['REVIEW_REFERENCE'] = 'DONE'
+      }
     }
     setProgress(map)
   }

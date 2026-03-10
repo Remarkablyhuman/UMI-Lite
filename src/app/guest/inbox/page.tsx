@@ -133,13 +133,6 @@ export default function GuestInbox() {
       return
     }
 
-    await supabase.from('tasks').insert({
-      type: 'REVIEW_REFERENCE',
-      status: 'DONE',
-      reference_id: inserted.id,
-      assignee_role: 'admin',
-    })
-
     const { data: newScript, error: scriptErr } = await supabase
       .from('scripts')
       .insert({ reference_id: inserted.id, guest_id: userId!, status: 'DRAFT', script_text: '' })

@@ -195,6 +195,11 @@ export default function GuestScriptPage() {
                 <span className="char-count">{scriptText.trim().length} 字</span>
               </div>
 
+              {/* Save draft — quick access before AI section */}
+              <button className="btn-ghost" onClick={saveDraft} disabled={saving}>
+                {saving ? '保存中…' : '保存草稿'}
+              </button>
+
               {/* AI panel */}
               <div className="ai-panel">
                 <p className="ai-panel-label">AI 辅助生成</p>
@@ -262,9 +267,6 @@ export default function GuestScriptPage() {
 
               {msg && <p className={msg.ok ? 'msg-ok' : 'msg-err'}>{msg.text}</p>}
 
-              <button className="btn-ghost" onClick={saveDraft} disabled={saving}>
-                {saving ? '保存中…' : '保存草稿'}
-              </button>
               <button
                 className="btn-primary"
                 onClick={submitForReview}
