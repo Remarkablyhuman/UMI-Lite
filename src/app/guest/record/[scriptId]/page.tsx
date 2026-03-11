@@ -103,7 +103,26 @@ export default function GuestRecordPage() {
 
   async function handleFinishRecording() {
     if (!taskId) return
+
+    const { data: guestProfile } = await supabase
+      .from('profiles')
+      .select('default_editor_id')
+      .eq('id', userId)
+      .single()
+
     await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
+
+    if (guestProfile?.default_editor_id && script?.reference_id) {
+      await supabase.from('tasks').insert({
+        type: 'EDIT_VIDEO',
+        status: 'OPEN',
+        reference_id: script.reference_id,
+        script_id: script.id,
+        assignee_id: guestProfile.default_editor_id,
+        assignee_role: 'editor',
+      })
+    }
+
     router.replace('/guest/inbox')
   }
 

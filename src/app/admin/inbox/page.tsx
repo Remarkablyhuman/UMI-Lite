@@ -224,6 +224,7 @@ export default function AdminInbox() {
             </div>
           </div>
           <nav className="header-nav">
+            <button className="nav-btn" onClick={() => router.push('/admin/guests')}>嘉宾管理</button>
             <button className="nav-btn nav-btn--ghost" onClick={handleSignOut}>退出</button>
           </nav>
         </header>
