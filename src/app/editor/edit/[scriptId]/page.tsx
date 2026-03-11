@@ -33,6 +33,10 @@ export default function EditorEditPage() {
   const [finalFileLabel, setFinalFileLabel] = useState<string | null>(null)
   const [loadingFinalUrl, setLoadingFinalUrl] = useState(false)
   const [loadingFinalDownloadPhase, setLoadingFinalDownloadPhase] = useState<'sign' | 'fetch' | null>(null)
+  const [rejectComment, setRejectComment] = useState('')
+  const [rejecting, setRejecting] = useState(false)
+  const [referenceId, setReferenceId] = useState<string | null>(null)
+  const [guestId, setGuestId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [uploadPhase, setUploadPhase] = useState<'uploading' | 'saving' | null>(null)
@@ -71,11 +75,13 @@ export default function EditorEditPage() {
 
       const { data: sc } = await supabase
         .from('scripts')
-        .select('script_text, reference_id, ref:references!reference_id(run_ref_id)')
+        .select('script_text, reference_id, guest_id, ref:references!reference_id(run_ref_id)')
         .eq('id', scriptId)
         .single()
       setScriptText((sc as any)?.script_text ?? null)
       setRunRefId((sc as any)?.ref?.run_ref_id ?? null)
+      setReferenceId((sc as any)?.reference_id ?? null)
+      setGuestId((sc as any)?.guest_id ?? null)
 
       const { data: rawDels } = await supabase
         .from('deliverables')
@@ -206,6 +212,27 @@ export default function EditorEditPage() {
     router.replace('/editor/inbox')
   }
 
+  async function rejectRawFootage() {
+    if (!rejectComment.trim()) { setError('请填写驳回说明。'); return }
+    if (!taskId || !guestId || !referenceId) return
+    setRejecting(true)
+
+    await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
+
+    const { error: insErr } = await supabase.from('tasks').insert({
+      type: 'RECORD_VIDEO',
+      status: 'OPEN',
+      reference_id: referenceId,
+      script_id: scriptId,
+      assignee_id: guestId,
+      assignee_role: 'guest',
+      comment: rejectComment.trim(),
+    })
+
+    if (insErr) { setError('驳回失败：' + insErr.message); setRejecting(false); return }
+    router.replace('/editor/inbox')
+  }
+
   if (loading) {
     return (
       <>
@@ -294,6 +321,28 @@ export default function EditorEditPage() {
               ) : (
                 <p className="empty-row">暂无记录。</p>
               )}
+            </div>
+          )}
+
+          {/* 驳回原片 */}
+          {taskId && rawDeliverables.length > 0 && (
+            <div className="reject-section">
+              <p className="section-label">驳回原片</p>
+              <textarea
+                className="form-input"
+                placeholder="驳回说明（必填）：例如「背景有噪音，请重新录制」"
+                value={rejectComment}
+                onChange={e => setRejectComment(e.target.value)}
+                rows={3}
+              />
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={rejectRawFootage}
+                disabled={rejecting || !rejectComment.trim()}
+              >
+                {rejecting ? '处理中…' : '驳回原片，退回嘉宾重录'}
+              </button>
             </div>
           )}
 
@@ -445,6 +494,11 @@ const css = `
   .btn-finish { width: 100%; padding: 13px; font-family: var(--mono); font-size: 14px; font-weight: 600; color: #000; background: var(--amber); border: none; cursor: pointer; transition: background .15s; }
   .btn-finish:hover:not(.btn-finish--disabled) { background: #f0ac30; }
   .btn-finish--disabled { background: var(--surface2); color: var(--text-dim); cursor: not-allowed; }
+
+  .reject-section { margin-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
+  .btn-danger { width: 100%; padding: 11px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--red); background: none; border: 1px solid var(--red); cursor: pointer; transition: background .15s; }
+  .btn-danger:hover:not(:disabled) { background: rgba(192,80,74,.08); }
+  .btn-danger:disabled { opacity: .5; cursor: not-allowed; }
 
   .script-section { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border); }
   .script-section .section-label { margin-bottom: 16px; }

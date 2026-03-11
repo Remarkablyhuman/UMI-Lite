@@ -36,6 +36,7 @@ export default function GuestRecordPage() {
   const [loading, setLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentScriptText, setCurrentScriptText] = useState('')
+  const [taskComment, setTaskComment] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [uploadPhase, setUploadPhase] = useState<'uploading' | 'saving' | null>(null)
   const [uploadStalled, setUploadStalled] = useState(false)
@@ -67,10 +68,11 @@ export default function GuestRecordPage() {
       setCurrentScriptText(sc?.script_text ?? '')
 
       const { data: task } = await supabase
-        .from('tasks').select('id, status')
-        .eq('script_id', scriptId).eq('type', 'RECORD_VIDEO').eq('assignee_id', user.id).maybeSingle()
+        .from('tasks').select('id, status, comment')
+        .eq('script_id', scriptId).eq('type', 'RECORD_VIDEO').eq('assignee_id', user.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
 
-      if (task?.status === 'OPEN') setTaskId(task.id)
+      if (task?.status === 'OPEN') { setTaskId(task.id); setTaskComment(task.comment ?? null) }
       if (task?.status === 'DONE') setTaskDone(true)
 
       const { data: dels } = await supabase
@@ -207,6 +209,13 @@ export default function GuestRecordPage() {
           <div className="run-ref">{runRefId}</div>
           <p className="run-meta">{taskDone ? '已完成录制。' : '请对照以下脚本录制视频，完成后上传视频文件。'}</p>
 
+          {taskComment && !taskDone && (
+            <div className="rework-banner">
+              <p className="rework-label">返工说明</p>
+              <p className="rework-text">{taskComment}</p>
+            </div>
+          )}
+
           {/* Teleprompter */}
           <textarea
             value={currentScriptText}
@@ -327,6 +336,10 @@ const css = `
   .main { max-width:800px; margin:0 auto; padding:32px 16px 80px; }
   .run-ref { font-family:var(--serif); font-size:clamp(20px,5vw,28px); font-weight:700; color:var(--text); margin-bottom:6px; }
   .run-meta { font-size:13px; color:var(--text-muted); margin-bottom:24px; }
+
+  .rework-banner { padding:16px 20px; background:rgba(192,80,74,.08); border:1px solid rgba(192,80,74,.3); border-left:3px solid var(--red); margin-bottom:28px; }
+  .rework-label { font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--red); margin-bottom:8px; }
+  .rework-text { font-size:15px; color:#e8a0a0; line-height:1.7; white-space:pre-wrap; }
 
   .teleprompter { width:100%; font-family:var(--serif); font-size:clamp(20px,4vw,32px); line-height:2; padding:clamp(20px,4vw,48px); background:#060606; color:#dedad2; border:1px solid var(--border); outline:none; resize:vertical; cursor:default; margin-bottom:32px; }
 

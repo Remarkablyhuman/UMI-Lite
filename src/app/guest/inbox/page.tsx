@@ -10,6 +10,7 @@ type Task = {
   status: string
   script_id: string | null
   reference_id: string | null
+  comment: string | null
 }
 
 type PendingScript = {
@@ -59,7 +60,7 @@ export default function GuestInbox() {
 
       const { data } = await supabase
         .from('tasks')
-        .select('id, type, status, script_id, reference_id')
+        .select('id, type, status, script_id, reference_id, comment')
         .eq('assignee_id', user.id)
         .in('status', ['OPEN', 'DONE'])
         .order('created_at', { ascending: false })
@@ -247,12 +248,15 @@ export default function GuestInbox() {
               </div>
               <div className="task-list">
                 {recordOpenTasks.map(t => (
-                  <div key={t.id} className="task-card task-card--active">
+                  <div key={t.id} className={`task-card task-card--active${t.comment ? ' task-card--rework' : ''}`}>
                     <div className="task-card-body">
                       <span className="task-run-ref">
                         {t.reference_id ? (runRefMap[t.reference_id] ?? t.reference_id) : '—'}
                       </span>
-                      <span className="task-type-badge task-type-badge--record">录制视频</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="task-type-badge task-type-badge--record">录制视频</span>
+                        {t.comment && <span className="rework-badge">返工</span>}
+                      </div>
                     </div>
                     {t.script_id && (
                       <button
@@ -628,6 +632,8 @@ const globalStyles = `
     transition: border-color 0.15s;
   }
   .task-card--active { border-left: 3px solid var(--amber); }
+  .task-card--rework { border-left: 3px solid var(--red); }
+  .rework-badge { font-size: 10px; padding: 2px 7px; background: rgba(192,80,74,.15); color: var(--red); border: 1px solid rgba(192,80,74,.3); letter-spacing: .06em; }
   .task-card--waiting { border-left: 3px solid #7060a0; opacity: 0.85; }
   .task-card--final { border-left: 3px solid var(--green); opacity: 0.85; }
   .task-card-body {
