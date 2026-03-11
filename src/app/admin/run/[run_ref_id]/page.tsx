@@ -635,7 +635,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
   const supabase = createClient()
   const [loadingUrl, setLoadingUrl] = useState(false)
-  const [loadingDownload, setLoadingDownload] = useState(false)
+  const [downloadPhase, setDownloadPhase] = useState<'sign' | 'fetch' | null>(null)
 
   async function openSignedUrl() {
     if (!d.storage_path) return
@@ -648,12 +648,13 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
 
   async function downloadFile() {
     if (!d.storage_path) return
-    setLoadingDownload(true)
+    setDownloadPhase('sign')
     const { data, error } = await supabase.storage.from('videos').createSignedUrl(d.storage_path, 3600)
-    if (error || !data?.signedUrl) { setLoadingDownload(false); alert('无法生成下载链接：' + (error?.message ?? '')); return }
+    if (error || !data?.signedUrl) { setDownloadPhase(null); alert('无法生成下载链接：' + (error?.message ?? '')); return }
+    setDownloadPhase('fetch')
     const res = await fetch(data.signedUrl)
     const blob = await res.blob()
-    setLoadingDownload(false)
+    setDownloadPhase(null)
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
@@ -673,8 +674,8 @@ function DeliverableRow({ label, d }: { label: string; d: Deliverable }) {
           <button className="file-btn file-btn--view" onClick={openSignedUrl} disabled={loadingUrl}>
             {loadingUrl ? '生成中…' : '查看'}
           </button>
-          <button className="file-btn file-btn--dl" onClick={downloadFile} disabled={loadingDownload}>
-            {loadingDownload ? '生成中…' : '下载'}
+          <button className="file-btn file-btn--dl" onClick={downloadFile} disabled={!!downloadPhase}>
+            {downloadPhase === 'sign' ? '准备中…' : downloadPhase === 'fetch' ? '下载中…' : '下载'}
           </button>
         </div>
       ) : (

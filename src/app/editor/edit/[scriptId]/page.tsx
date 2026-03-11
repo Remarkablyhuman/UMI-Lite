@@ -5,6 +5,12 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resumableUpload } from '@/lib/storage/resumableUpload'
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`
+}
+
 export default function EditorEditPage() {
   const router = useRouter()
   const { scriptId } = useParams<{ scriptId: string }>()
@@ -22,13 +28,28 @@ export default function EditorEditPage() {
   const [scriptText, setScriptText] = useState<string | null>(null)
   const [runRefId, setRunRefId] = useState<string | null>(null)
   const [rawDeliverables, setRawDeliverables] = useState<{ storage_path: string; file_label: string | null }[]>([])
-  const [loadingRawIdx, setLoadingRawIdx] = useState<{ idx: number; action: 'view' | 'dl' } | null>(null)
+  const [loadingRawIdx, setLoadingRawIdx] = useState<{ idx: number; action: 'view' | 'dl-sign' | 'dl-fetch' } | null>(null)
   const [finalStoragePath, setFinalStoragePath] = useState<string | null>(null)
   const [finalFileLabel, setFinalFileLabel] = useState<string | null>(null)
   const [loadingFinalUrl, setLoadingFinalUrl] = useState(false)
-  const [loadingFinalDownload, setLoadingFinalDownload] = useState(false)
+  const [loadingFinalDownloadPhase, setLoadingFinalDownloadPhase] = useState<'sign' | 'fetch' | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'saving' | null>(null)
+  const [uploadStalled, setUploadStalled] = useState(false)
+  const lastProgressTime = useRef<number>(Date.now())
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (uploadPhase !== 'uploading') return
+    lastProgressTime.current = Date.now()
+    setUploadStalled(false)
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current)
+    stallTimerRef.current = setTimeout(() => {
+      if (Date.now() - lastProgressTime.current >= 15000) setUploadStalled(true)
+    }, 15000)
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current) }
+  }, [uploadProgress, uploadPhase])
 
   useEffect(() => {
     async function load() {
@@ -89,9 +110,10 @@ export default function EditorEditPage() {
   }
 
   async function downloadRawFile(storagePath: string, fileLabel: string | null, idx: number) {
-    setLoadingRawIdx({ idx, action: 'dl' })
+    setLoadingRawIdx({ idx, action: 'dl-sign' })
     const { data, error } = await supabase.storage.from('videos').createSignedUrl(storagePath, 3600)
     if (error || !data?.signedUrl) { setLoadingRawIdx(null); setError('无法生成下载链接：' + (error?.message ?? '')); return }
+    setLoadingRawIdx({ idx, action: 'dl-fetch' })
     const res = await fetch(data.signedUrl)
     const blob = await res.blob()
     setLoadingRawIdx(null)
@@ -114,12 +136,13 @@ export default function EditorEditPage() {
 
   async function downloadFinalFile() {
     if (!finalStoragePath) return
-    setLoadingFinalDownload(true)
+    setLoadingFinalDownloadPhase('sign')
     const { data, error } = await supabase.storage.from('videos').createSignedUrl(finalStoragePath, 3600)
-    if (error || !data?.signedUrl) { setLoadingFinalDownload(false); setError('无法生成下载链接：' + (error?.message ?? '')); return }
+    if (error || !data?.signedUrl) { setLoadingFinalDownloadPhase(null); setError('无法生成下载链接：' + (error?.message ?? '')); return }
+    setLoadingFinalDownloadPhase('fetch')
     const res = await fetch(data.signedUrl)
     const blob = await res.blob()
-    setLoadingFinalDownload(false)
+    setLoadingFinalDownloadPhase(null)
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
@@ -140,17 +163,30 @@ export default function EditorEditPage() {
     const storagePath = `final/${scriptId}/${timestamp}${ext}`
 
     setUploadProgress(0)
+    setUploadPhase('uploading')
+    setUploadStalled(false)
     try {
-      await resumableUpload(supabase, 'videos', storagePath, file, setUploadProgress)
+      await resumableUpload(supabase, 'videos', storagePath, file, (pct) => {
+        setUploadProgress(pct)
+        lastProgressTime.current = Date.now()
+      })
     } catch (err: any) {
       const httpStatus = (err as any)?.originalResponse?.getStatus?.()
       const isTooBig = httpStatus === 413 || /too large|exceed/i.test(err.message ?? '')
-      setError(isTooBig ? '文件过大，请减小文件后重试' : (err.message ?? '上传失败'))
+      const isNetwork = /network|fetch|timeout|abort/i.test(err.message ?? '')
+      setError(
+        isTooBig ? '文件过大，请压缩后重试' :
+        isNetwork ? '网络中断，请检查连接后重试' :
+        '上传失败，请刷新页面重试'
+      )
       setUploadProgress(null)
+      setUploadPhase(null)
+      setUploadStalled(false)
       setSubmitting(false)
       return
     }
     setUploadProgress(null)
+    setUploadPhase('saving')
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId,
@@ -161,7 +197,7 @@ export default function EditorEditPage() {
       created_by: userId,
     })
 
-    if (delErr) { setError(delErr.message); setSubmitting(false); return }
+    if (delErr) { setError(delErr.message); setUploadPhase(null); setSubmitting(false); return }
 
     if (taskId) {
       await supabase.from('tasks').update({ status: 'DONE' }).eq('id', taskId)
@@ -219,7 +255,10 @@ export default function EditorEditPage() {
             <p className="section-label">原片 ({rawDeliverables.length})</p>
             {rawDeliverables.length > 0 ? rawDeliverables.map((d, i) => {
               const isViewing = loadingRawIdx?.idx === i && loadingRawIdx.action === 'view'
-              const isDling   = loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl'
+              const isDling   = loadingRawIdx?.idx === i && (loadingRawIdx.action === 'dl-sign' || loadingRawIdx.action === 'dl-fetch')
+              const dlLabel =
+                loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl-sign' ? '准备中…' :
+                loadingRawIdx?.idx === i && loadingRawIdx.action === 'dl-fetch' ? '下载中…' : '下载'
               return (
                 <div key={i} className="deliverable-row">
                   <span className="deliverable-name">{d.file_label ?? '未命名文件'}</span>
@@ -228,7 +267,7 @@ export default function EditorEditPage() {
                       {isViewing ? '生成中…' : '查看'}
                     </button>
                     <button className="file-btn file-btn--dl" onClick={() => downloadRawFile(d.storage_path, d.file_label, i)} disabled={!!loadingRawIdx}>
-                      {isDling ? '生成中…' : '下载'}
+                      {dlLabel}
                     </button>
                   </div>
                 </div>
@@ -247,8 +286,8 @@ export default function EditorEditPage() {
                     <button className="file-btn file-btn--view" onClick={openFinalUrl} disabled={loadingFinalUrl}>
                       {loadingFinalUrl ? '生成中…' : '查看'}
                     </button>
-                    <button className="file-btn file-btn--dl" onClick={downloadFinalFile} disabled={loadingFinalDownload}>
-                      {loadingFinalDownload ? '生成中…' : '下载'}
+                    <button className="file-btn file-btn--dl" onClick={downloadFinalFile} disabled={!!loadingFinalDownloadPhase}>
+                      {loadingFinalDownloadPhase === 'sign' ? '准备中…' : loadingFinalDownloadPhase === 'fetch' ? '下载中…' : '下载'}
                     </button>
                   </div>
                 </div>
@@ -280,12 +319,24 @@ export default function EditorEditPage() {
 
                 {error && <p className="msg-err">{error}</p>}
 
-                {uploadProgress !== null && (
-                  <div className="progress-wrap">
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
+                {uploadPhase && (
+                  <div className="upload-status">
+                    <div className="upload-status-row">
+                      <span className="upload-phase-label">
+                        {uploadPhase === 'uploading' ? '上传中' : '写入中'}
+                      </span>
+                      <span className="upload-pct">
+                        {uploadPhase === 'uploading' ? `${uploadProgress}%` : '请稍候…'}
+                      </span>
                     </div>
-                    <span className="progress-label">{uploadProgress}%</span>
+                    <div className="progress-bar">
+                      <div className={`progress-fill${uploadPhase === 'saving' ? ' progress-fill--pulse' : ''}`}
+                           style={{ width: uploadPhase === 'saving' ? '100%' : `${uploadProgress}%` }} />
+                    </div>
+                    <div className="upload-meta">
+                      {file && <span className="upload-size">{formatFileSize(file.size)}</span>}
+                      {uploadStalled && <span className="upload-stall">网络较慢，请保持连接</span>}
+                    </div>
                   </div>
                 )}
 
@@ -377,10 +428,17 @@ const css = `
   .dropzone:hover { border-color: var(--amber); color: var(--text); }
   .dropzone--selected { color: var(--text); border-color: var(--border2); border-style: solid; }
 
-  .progress-wrap { display: flex; flex-direction: column; gap: 4px; }
-  .progress-bar { height: 3px; background: var(--border); }
-  .progress-fill { height: 3px; background: var(--amber); transition: width .2s; }
-  .progress-label { font-size: 11px; color: var(--text-muted); }
+  .upload-status { display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); }
+  .upload-status-row { display:flex; justify-content:space-between; align-items:center; }
+  .upload-phase-label { font-size:12px; font-weight:600; color:var(--amber); letter-spacing:.06em; }
+  .upload-pct { font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .upload-meta { display:flex; justify-content:space-between; align-items:center; }
+  .upload-size { font-size:11px; color:var(--text-dim); }
+  .upload-stall { font-size:11px; color:#b08040; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; }
+  .progress-fill { height: 4px; background: var(--amber); border-radius: 2px; transition: width .3s; }
+  .progress-fill--pulse { animation: progressPulse 1.5s ease-in-out infinite; }
+  @keyframes progressPulse { 0%,100%{opacity:.6;} 50%{opacity:1;} }
 
   .msg-err { font-size: 13px; color: var(--red); padding: 8px 12px; border-left: 2px solid var(--red); background: rgba(192,80,74,.1); }
 

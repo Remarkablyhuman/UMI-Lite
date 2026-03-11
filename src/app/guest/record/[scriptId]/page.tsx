@@ -5,6 +5,12 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resumableUpload } from '@/lib/storage/resumableUpload'
 
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`
+}
+
 type Script = {
   id: string
   script_text: string | null
@@ -31,6 +37,21 @@ export default function GuestRecordPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentScriptText, setCurrentScriptText] = useState('')
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadPhase, setUploadPhase] = useState<'uploading' | 'saving' | null>(null)
+  const [uploadStalled, setUploadStalled] = useState(false)
+  const lastProgressTime = useRef<number>(Date.now())
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (uploadPhase !== 'uploading') return
+    lastProgressTime.current = Date.now()
+    setUploadStalled(false)
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current)
+    stallTimerRef.current = setTimeout(() => {
+      if (Date.now() - lastProgressTime.current >= 15000) setUploadStalled(true)
+    }, 15000)
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current) }
+  }, [uploadProgress, uploadPhase])
 
   useEffect(() => {
     async function load() {
@@ -73,21 +94,32 @@ export default function GuestRecordPage() {
     const ext = file.name.includes('.') ? '.' + file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '') : ''
     const storagePath = `raw/${scriptId}/${timestamp}${ext}`
     setUploadProgress(0)
+    setUploadPhase('uploading')
+    setUploadStalled(false)
     try {
-      await resumableUpload(supabase, 'videos', storagePath, file, setUploadProgress)
+      await resumableUpload(supabase, 'videos', storagePath, file, (pct) => {
+        setUploadProgress(pct)
+        lastProgressTime.current = Date.now()
+      })
     } catch (err: any) {
       const httpStatus = (err as any)?.originalResponse?.getStatus?.()
       const isTooBig = httpStatus === 413 || /too large|exceed/i.test(err.message ?? '')
-      setError(isTooBig ? '文件过大，请减小文件后重试' : (err.message ?? '上传失败'))
-      setUploadProgress(null); setSubmitting(false); return
+      const isNetwork = /network|fetch|timeout|abort/i.test(err.message ?? '')
+      setError(
+        isTooBig ? '文件过大，请压缩后重试' :
+        isNetwork ? '网络中断，请检查连接后重试' :
+        '上传失败，请刷新页面重试'
+      )
+      setUploadProgress(null); setUploadPhase(null); setUploadStalled(false); setSubmitting(false); return
     }
     setUploadProgress(null)
+    setUploadPhase('saving')
 
     const { error: delErr } = await supabase.from('deliverables').insert({
       script_id: scriptId, type: 'raw', storage_path: storagePath,
       baidu_share_url: '', file_label: fileLabel.trim() || file.name, created_by: userId,
     })
-    if (delErr) { setError(delErr.message); setSubmitting(false); return }
+    if (delErr) { setError(delErr.message); setUploadPhase(null); setSubmitting(false); return }
 
     const { data: dels } = await supabase
       .from('deliverables').select('storage_path, file_label')
@@ -97,6 +129,8 @@ export default function GuestRecordPage() {
     setFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
     setFileLabel('')
+    setUploadPhase(null)
+    setUploadStalled(false)
     setUploadMsg('原片已上传，可继续上传或点击「完成录制」。')
     setSubmitting(false)
   }
@@ -216,12 +250,24 @@ export default function GuestRecordPage() {
 
                 {error && <p className="msg-err">{error}</p>}
 
-                {uploadProgress !== null && (
-                  <div className="progress-wrap">
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
+                {uploadPhase && (
+                  <div className="upload-status">
+                    <div className="upload-status-row">
+                      <span className="upload-phase-label">
+                        {uploadPhase === 'uploading' ? '上传中' : '写入中'}
+                      </span>
+                      <span className="upload-pct">
+                        {uploadPhase === 'uploading' ? `${uploadProgress}%` : '请稍候…'}
+                      </span>
                     </div>
-                    <span className="progress-label">{uploadProgress}%</span>
+                    <div className="progress-bar">
+                      <div className={`progress-fill${uploadPhase === 'saving' ? ' progress-fill--pulse' : ''}`}
+                           style={{ width: uploadPhase === 'saving' ? '100%' : `${uploadProgress}%` }} />
+                    </div>
+                    <div className="upload-meta">
+                      {file && <span className="upload-size">{formatFileSize(file.size)}</span>}
+                      {uploadStalled && <span className="upload-stall">网络较慢，请保持连接</span>}
+                    </div>
                   </div>
                 )}
 
@@ -302,10 +348,17 @@ const css = `
   .dropzone:hover { border-color:var(--amber); color:var(--text); }
   .dropzone--selected { color:var(--text); border-color:var(--border2); border-style:solid; }
 
-  .progress-wrap { display:flex; flex-direction:column; gap:4px; }
-  .progress-bar { height:3px; background:var(--border); }
-  .progress-fill { height:3px; background:var(--amber); transition:width .2s; }
-  .progress-label { font-size:11px; color:var(--text-muted); }
+  .upload-status { display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); }
+  .upload-status-row { display:flex; justify-content:space-between; align-items:center; }
+  .upload-phase-label { font-size:12px; font-weight:600; color:var(--amber); letter-spacing:.06em; }
+  .upload-pct { font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .upload-meta { display:flex; justify-content:space-between; align-items:center; }
+  .upload-size { font-size:11px; color:var(--text-dim); }
+  .upload-stall { font-size:11px; color:#b08040; }
+  .progress-bar { height:4px; background:var(--border); border-radius:2px; }
+  .progress-fill { height:4px; background:var(--amber); border-radius:2px; transition:width .3s; }
+  .progress-fill--pulse { animation:progressPulse 1.5s ease-in-out infinite; }
+  @keyframes progressPulse { 0%,100%{opacity:.6;} 50%{opacity:1;} }
 
   .msg-ok { font-size:13px; color:var(--green); padding:8px 12px; border-left:2px solid var(--green); background:rgba(90,138,106,.1); }
   .msg-err { font-size:13px; color:var(--red); padding:8px 12px; border-left:2px solid var(--red); background:rgba(192,80,74,.1); }
