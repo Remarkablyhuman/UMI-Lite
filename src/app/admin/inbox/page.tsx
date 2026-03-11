@@ -15,12 +15,13 @@ type Profile = {
   role: string
 }
 
-const STAGES = ['REVIEW_REFERENCE', 'REVIEW_SCRIPT', 'RECORD_VIDEO', 'EDIT_VIDEO'] as const
+const STAGES = ['REVIEW_REFERENCE', 'REVIEW_SCRIPT', 'RECORD_VIDEO', 'EDIT_VIDEO', 'REVIEW_FINAL_CUT'] as const
 const STAGE_LABELS: Record<string, string> = {
   REVIEW_REFERENCE: '选题',
   REVIEW_SCRIPT:    '脚本',
   RECORD_VIDEO:     '录制',
   EDIT_VIDEO:       '剪辑',
+  REVIEW_FINAL_CUT: '终审',
 }
 
 type RefProgress = Record<string, 'DONE' | 'OPEN' | null>
