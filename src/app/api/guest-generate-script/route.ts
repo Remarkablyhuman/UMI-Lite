@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   try {
     const body = await req.json()
-    const { personaJson, referenceTranscript, extraInstructions, constraints } = body
+    const { personaJson, referenceTranscript, extraInstructions, constraints, advisory } = body
 
     if (!referenceTranscript || typeof referenceTranscript !== 'string') {
       return NextResponse.json({ error: 'referenceTranscript is required' }, { status: 400 })
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       referenceTranscript,
       topicBrief: extraInstructions ?? '',
       constraints,
+      advisory: advisory ?? null,
     })
 
     const completion = await openai.chat.completions.create({
@@ -67,6 +68,7 @@ export function buildHumanScriptWithEvidencePrompt(params: {
   personaJson: any;
   referenceTranscript: string;
   topicBrief: string;
+  advisory?: string | null;
   constraints?: {
     platform?: "tiktok" | "xhs" | "wechat" | "youtube" | "generic";
     language?: "zh-CN" | "en-US";
@@ -75,7 +77,7 @@ export function buildHumanScriptWithEvidencePrompt(params: {
     cta_required?: boolean;
   };
 }) {
-  const { personaJson, referenceTranscript, topicBrief, constraints = {} } = params;
+  const { personaJson, referenceTranscript, topicBrief, advisory, constraints = {} } = params;
 
   const {
     platform = "generic",
@@ -171,10 +173,14 @@ Key Points:
 Do NOT mention persona, JSON, transcript, or prompt.
   `.trim();
 
+  const advisoryBlock = advisory?.trim()
+    ? `\nCREATOR ADVISORY (style guidance specific to this creator — apply where relevant):\n${advisory.trim()}\n`
+    : '';
+
   const user = `
 EXTRA INSTRUCTIONS (MUST follow — these take priority over all defaults below):
 ${topicBrief || '(none)'}
-
+${advisoryBlock}
 PERSONA JSON:
 ${JSON.stringify(personaJson)}
 

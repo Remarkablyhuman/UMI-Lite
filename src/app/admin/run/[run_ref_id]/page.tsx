@@ -157,7 +157,7 @@ export default function AdminRunPage() {
     try {
       const { data: personaRow } = await supabase
         .from('guest_profiles')
-        .select('profile_data')
+        .select('profile_data, advisory')
         .eq('guest_id', selectedGuestIds[0])
         .maybeSingle()
 
@@ -168,6 +168,7 @@ export default function AdminRunPage() {
           referenceTranscript: scriptText,
           extraInstructions,
           personaJson: personaRow?.profile_data ?? {},
+          advisory: (personaRow as any)?.advisory ?? null,
           constraints: {
             target_chars: genTargetChars,
             platform: genPlatform,

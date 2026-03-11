@@ -40,6 +40,7 @@ export default function GuestScriptPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const [personaData, setPersonaData] = useState<any>(null)
+  const [personaAdvisory, setPersonaAdvisory] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [extraInstructions, setExtraInstructions] = useState('')
   const [genTargetChars, setGenTargetChars] = useState(600)
@@ -75,8 +76,9 @@ export default function GuestScriptPage() {
       setReference(ref ?? null)
 
       const { data: personaRow } = await supabase
-        .from('guest_profiles').select('profile_data').eq('guest_id', user.id).maybeSingle()
+        .from('guest_profiles').select('profile_data, advisory').eq('guest_id', user.id).maybeSingle()
       setPersonaData(personaRow?.profile_data ?? {})
+      setPersonaAdvisory((personaRow as any)?.advisory ?? null)
 
       setLoading(false)
     }
@@ -118,6 +120,7 @@ export default function GuestScriptPage() {
         body: JSON.stringify({
           referenceTranscript: scriptText, extraInstructions,
           personaJson: personaData ?? {},
+          advisory: personaAdvisory,
           constraints: { target_chars: genTargetChars, platform: genPlatform, format: genFormat },
         }),
       })
