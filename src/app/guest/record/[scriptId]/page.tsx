@@ -157,6 +157,11 @@ export default function GuestRecordPage() {
         assignee_id: guestProfile.default_editor_id,
         assignee_role: 'editor',
       })
+      fetch('/api/notify-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskType: 'EDIT_VIDEO', assigneeId: guestProfile.default_editor_id, referenceId: script.reference_id }),
+      }).catch(console.error)
     }
 
     router.replace('/guest/inbox')

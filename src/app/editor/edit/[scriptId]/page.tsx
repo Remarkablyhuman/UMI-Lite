@@ -230,6 +230,13 @@ export default function EditorEditPage() {
     })
 
     if (insErr) { setError('驳回失败：' + insErr.message); setRejecting(false); return }
+
+    fetch('/api/notify-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskType: 'RECORD_VIDEO', assigneeId: guestId, referenceId }),
+    }).catch(console.error)
+
     router.replace('/editor/inbox')
   }
 

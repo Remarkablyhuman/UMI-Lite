@@ -277,6 +277,12 @@ export default function AdminRunPage() {
       assignee_role: 'guest',
     })
 
+    fetch('/api/notify-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskType: 'RECORD_VIDEO', assigneeId: script.guest_id, referenceId: reference!.id }),
+    }).catch(console.error)
+
     setActionMsg('脚本已审核通过，录制任务已发送给达人。')
   }
 
@@ -293,6 +299,12 @@ export default function AdminRunPage() {
       assignee_role: 'editor',
       deliverable_type: 'raw',
     })
+
+    fetch('/api/notify-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskType: 'EDIT_VIDEO', assigneeId: selectedEditorId, referenceId: reference!.id }),
+    }).catch(console.error)
 
     setActionMsg('剪辑任务已分配给剪辑师。')
   }
