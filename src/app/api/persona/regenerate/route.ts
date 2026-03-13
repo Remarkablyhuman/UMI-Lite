@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     // Generate persona via OpenAI
     const prompt = buildPersonaPrompt(kbEntries)
     const completion = await openai.chat.completions.create({
-      model: 'gpt-5.1',
+      model: 'gpt-5.4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       response_format: { type: 'json_object' },
@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
     if (selfIntroEntries.length > 0) {
       const advisoryPrompt = buildAdvisoryPrompt(selfIntroEntries)
       const advisoryCompletion = await openai.chat.completions.create({
-        model: 'gpt-5.1',
+        model: 'gpt-5.4',
         messages: [{ role: 'user', content: advisoryPrompt }],
         temperature: 0.7,
       })
