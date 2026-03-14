@@ -37,10 +37,6 @@ function arr(v: unknown): string[] {
   if (!Array.isArray(v)) return []
   return v.filter(x => x != null).map(x => typeof x === 'string' ? x : JSON.stringify(x))
 }
-function objArr(v: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(v)) return []
-  return v.filter(x => x != null && typeof x === 'object') as Record<string, unknown>[]
-}
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60).toString().padStart(2, '0')
   const s = (secs % 60).toString().padStart(2, '0')
@@ -547,13 +543,17 @@ function PersonaTab({
   }
 
   const pd = persona.profile_data as any
-  const core = pd?.core ?? {}
+  const identity = pd?.identity ?? {}
   const voice = pd?.voice_style ?? {}
-  const content = pd?.content_system ?? {}
-  const bounds = pd?.boundaries ?? {}
-  const growth = pd?.growth ?? {}
-  const modules = objArr(pd?.modules)
-  const evidence = pd?.evidence ?? {}
+  const expr = pd?.expression_habits ?? {}
+  const logic = pd?.reasoning_logic ?? {}
+  const bestEntry = pd?.best_entry_point ?? {}
+  const contentDir = pd?.content_directions ?? {}
+  const audience = pd?.target_audience ?? {}
+  const positioning = pd?.content_positioning ?? {}
+  const taboo = pd?.taboo_expressions ?? {}
+  const titleStyle = pd?.title_style ?? {}
+  const openingStyle = pd?.opening_style ?? {}
 
   return (
     <div>
@@ -574,203 +574,381 @@ function PersonaTab({
 
       {genMsg && <p className={genMsg.ok ? 'msg-ok' : 'msg-err'} style={{ marginBottom: 16 }}>{genMsg.text}</p>}
 
-      {/* Card 1: 核心定位 */}
-      <SectionCard title="核心定位">
-        {s(core.display_name) && (
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--text)', marginBottom: 4 }}>{s(core.display_name)}</div>
+      {/* Card 1: 身份定位 */}
+      <SectionCard title="身份定位">
+        {s(identity.name) && (
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 22, color: 'var(--text)', marginBottom: 4 }}>{s(identity.name)}{s(identity.short_name) ? ` · ${s(identity.short_name)}` : ''}</div>
         )}
-        {s(core.domain) && (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>{s(core.domain)}</div>
+        {s(identity.current_role) && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>{s(identity.current_role)}{s(identity.industry) ? ` · ${s(identity.industry)}` : ''}{s(identity.region) ? ` · ${s(identity.region)}` : ''}</div>
         )}
-        {s(core.positioning) && (
+        {s(identity.main_business) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">定位</div>
-            <div className="pcard-field-value">{s(core.positioning)}</div>
+            <div className="pcard-field-label">主营业务</div>
+            <div className="pcard-field-value">{s(identity.main_business)}</div>
           </div>
         )}
-        {s(core.background_summary) && (
+        {s(identity.realistic_position) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">背景简介</div>
-            <div className="pcard-field-value">{s(core.background_summary)}</div>
+            <div className="pcard-field-label">真实定位</div>
+            <div className="pcard-field-value">{s(identity.realistic_position)}</div>
           </div>
         )}
-        {arr(core.expertise_areas).length > 0 && (
+        {arr(pd?.persona_tags).length > 0 && (
           <div className="pcard-field">
-            <div className="pcard-field-label">专业方向</div>
+            <div className="pcard-field-label">人设标签</div>
             <div className="pcard-chips">
-              {arr(core.expertise_areas).map((e, i) => <Chip key={i} label={e} variant="default" />)}
+              {arr(pd?.persona_tags).map((t, i) => <Chip key={i} label={t} variant="amber" />)}
             </div>
           </div>
         )}
       </SectionCard>
 
-      {/* Card 2: 内容体系 */}
-      <SectionCard title="内容体系">
-        {arr(content.core_topics).length > 0 && (
+      {/* Card 2: 关键经历 */}
+      {arr(pd?.key_experiences).length > 0 && (
+        <SectionCard title="关键经历">
+          <ul style={{ paddingLeft: 16, margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>
+            {arr(pd?.key_experiences).map((e, i) => <li key={i} style={{ marginBottom: 6 }}>{e}</li>)}
+          </ul>
+        </SectionCard>
+      )}
+
+      {/* Card 3: 最佳切入点 */}
+      <SectionCard title="最佳切入点">
+        {s(bestEntry.primary_entry) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">核心话题</div>
+            <div className="pcard-field-label">主切入点</div>
+            <div className="pcard-field-value" style={{ color: 'var(--amber)' }}>{s(bestEntry.primary_entry)}</div>
+          </div>
+        )}
+        {s(bestEntry.reason) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">原因</div>
+            <div className="pcard-field-value">{s(bestEntry.reason)}</div>
+          </div>
+        )}
+        {s(bestEntry.target_audience) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">面向人群</div>
+            <div className="pcard-field-value">{s(bestEntry.target_audience)}</div>
+          </div>
+        )}
+        {arr(bestEntry.avoid_entries).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">避免切入</div>
             <div className="pcard-chips">
-              {arr(content.core_topics).map((t, i) => <Chip key={i} label={t} variant="amber" />)}
+              {arr(bestEntry.avoid_entries).map((a, i) => <Chip key={i} label={a} variant="red" />)}
             </div>
           </div>
         )}
-        {arr(content.content_pillars).length > 0 && (
+      </SectionCard>
+
+      {/* Card 4: 内容方向 */}
+      <SectionCard title="内容方向">
+        {arr(contentDir.primary).length > 0 && (
           <div className="pcard-field">
-            <div className="pcard-field-label">内容支柱</div>
+            <div className="pcard-field-label">主方向</div>
+            <div className="pcard-chips">
+              {arr(contentDir.primary).map((t, i) => <Chip key={i} label={t} variant="green" />)}
+            </div>
+          </div>
+        )}
+        {arr(contentDir.secondary).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">辅方向</div>
+            <div className="pcard-chips">
+              {arr(contentDir.secondary).map((t, i) => <Chip key={i} label={t} variant="default" />)}
+            </div>
+          </div>
+        )}
+        {arr(contentDir.avoid).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">不做方向</div>
+            <div className="pcard-chips">
+              {arr(contentDir.avoid).map((t, i) => <Chip key={i} label={t} variant="red" />)}
+            </div>
+          </div>
+        )}
+        {(arr(positioning.types).length > 0 || s(positioning.orientation)) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">内容定位</div>
+            {arr(positioning.types).length > 0 && (
+              <div className="pcard-chips" style={{ marginBottom: 6 }}>
+                {arr(positioning.types).map((t, i) => <Chip key={i} label={t} variant="muted" />)}
+              </div>
+            )}
+            {s(positioning.orientation) && <div className="pcard-field-value">{s(positioning.orientation)}</div>}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Card 5: 目标受众 */}
+      <SectionCard title="目标受众">
+        {arr(audience.core_groups).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">核心人群</div>
+            <div className="pcard-chips">
+              {arr(audience.core_groups).map((g, i) => <Chip key={i} label={g} variant="blue" />)}
+            </div>
+          </div>
+        )}
+        {s(audience.stage) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">受众阶段</div>
+            <div className="pcard-field-value">{s(audience.stage)}</div>
+          </div>
+        )}
+        {s(audience.typical_state) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">典型状态</div>
+            <div className="pcard-field-value">{s(audience.typical_state)}</div>
+          </div>
+        )}
+        {s(audience.main_anxiety) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">核心焦虑</div>
+            <div className="pcard-field-value" style={{ color: 'var(--amber)' }}>{s(audience.main_anxiety)}</div>
+          </div>
+        )}
+        {s(audience.desired_outcome) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">期望结果</div>
+            <div className="pcard-field-value">{s(audience.desired_outcome)}</div>
+          </div>
+        )}
+        {arr(audience.trigger_questions).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">触发问题</div>
             <ul style={{ paddingLeft: 16, margin: '4px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-              {arr(content.content_pillars).map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
+              {arr(audience.trigger_questions).map((q, i) => <li key={i} style={{ marginBottom: 4 }}>{q}</li>)}
             </ul>
           </div>
         )}
-        {s(content.storytelling_approach) && (
+        {arr(pd?.audience_pain_points).length > 0 && (
           <div className="pcard-field">
-            <div className="pcard-field-label">叙事方式</div>
-            <div className="pcard-field-value">{s(content.storytelling_approach)}</div>
-          </div>
-        )}
-        {arr(content.preferred_formats).length > 0 && (
-          <div className="pcard-field">
-            <div className="pcard-field-label">偏好形式</div>
+            <div className="pcard-field-label">痛点列表</div>
             <div className="pcard-chips">
-              {arr(content.preferred_formats).map((f, i) => <Chip key={i} label={f} variant="muted" />)}
+              {arr(pd?.audience_pain_points).map((p, i) => <Chip key={i} label={p} variant="muted" />)}
             </div>
           </div>
         )}
       </SectionCard>
 
-      {/* Card 3: 表达风格 */}
-      <SectionCard title="表达风格">
+      {/* Card 6: 声音风格 */}
+      <SectionCard title="声音风格">
         {s(voice.tone) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">整体语气</div>
+            <div className="pcard-field-label">语气调性</div>
             <div className="pcard-field-value">{s(voice.tone)}</div>
           </div>
         )}
-        {s(voice.language_pattern) && (
+        {s(voice.pace) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">语言模式</div>
-            <div className="pcard-field-value">{s(voice.language_pattern)}</div>
+            <div className="pcard-field-label">节奏感</div>
+            <div className="pcard-field-value">{s(voice.pace)}</div>
           </div>
         )}
-        {arr(voice.signature_expressions).length > 0 && (
+        {s(voice.pressure_level) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">标志性表达</div>
-            <div className="pcard-chips">
-              {arr(voice.signature_expressions).map((e, i) => <Chip key={i} label={`「${e}」`} variant="green" />)}
-            </div>
+            <div className="pcard-field-label">压迫感</div>
+            <div className="pcard-field-value">{s(voice.pressure_level)}</div>
           </div>
         )}
-        {arr(voice.taboo_expressions).length > 0 && (
+        {s(voice.warmth_level) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">禁用表达</div>
-            <div className="pcard-chips">
-              {arr(voice.taboo_expressions).map((e, i) => <Chip key={i} label={`× ${e}`} variant="red" />)}
-            </div>
+            <div className="pcard-field-label">亲和力</div>
+            <div className="pcard-field-value">{s(voice.warmth_level)}</div>
           </div>
         )}
-      </SectionCard>
-
-      {/* Card 4: 内容边界 */}
-      <SectionCard title="内容边界">
-        {arr(bounds.values).length > 0 && (
+        {s(voice.expertise_life_ratio) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">核心价值观</div>
-            <div className="pcard-chips">
-              {arr(bounds.values).map((v, i) => <Chip key={i} label={v} variant="default" />)}
-            </div>
-          </div>
-        )}
-        {arr(bounds.hard_limits).length > 0 && (
-          <div className="pcard-field">
-            <div className="pcard-field-label">禁止内容</div>
-            <div className="pcard-chips">
-              {arr(bounds.hard_limits).map((h, i) => <Chip key={i} label={h} variant="red" />)}
-            </div>
-          </div>
-        )}
-        {arr(bounds.preferred_avoid).length > 0 && (
-          <div className="pcard-field">
-            <div className="pcard-field-label">尽量避免</div>
-            <div className="pcard-chips">
-              {arr(bounds.preferred_avoid).map((a, i) => <Chip key={i} label={a} variant="muted" />)}
-            </div>
+            <div className="pcard-field-label">专业/生活比</div>
+            <div className="pcard-field-value">{s(voice.expertise_life_ratio)}</div>
           </div>
         )}
       </SectionCard>
 
-      {/* Card 5: 成长轨迹 */}
-      <SectionCard title="成长轨迹">
-        {s(growth.current_stage) && (
+      {/* Card 7: 表达习惯 */}
+      <SectionCard title="表达习惯">
+        {s(expr.structure_preference) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">当前阶段</div>
-            <div className="pcard-field-value">{s(growth.current_stage)}</div>
+            <div className="pcard-field-label">结构偏好</div>
+            <div className="pcard-field-value">{s(expr.structure_preference)}</div>
           </div>
         )}
-        {s(growth.next_focus) && (
+        {s(expr.sentence_style) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">下一步重点</div>
-            <div className="pcard-field-value" style={{ color: 'var(--amber)' }}>{s(growth.next_focus)}</div>
+            <div className="pcard-field-label">句式风格</div>
+            <div className="pcard-field-value">{s(expr.sentence_style)}</div>
           </div>
         )}
-        {arr(growth.key_milestones).length > 0 && (
+        {s(expr.use_examples) && (
           <div className="pcard-field">
-            <div className="pcard-field-label">关键里程碑</div>
-            <ul className="milestone-list">
-              {arr(growth.key_milestones).map((m, i) => (
-                <li key={i} className="milestone-item">
-                  <span className="milestone-dot" />
-                  <span>{m}</span>
-                </li>
-              ))}
+            <div className="pcard-field-label">举例方式</div>
+            <div className="pcard-field-value">{s(expr.use_examples)}</div>
+          </div>
+        )}
+        {s(expr.personal_observations) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">个人观察</div>
+            <div className="pcard-field-value">{s(expr.personal_observations)}</div>
+          </div>
+        )}
+        {s(expr.sharp_expression) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">犀利表达</div>
+            <div className="pcard-field-value" style={{ color: 'var(--amber)' }}>{s(expr.sharp_expression)}</div>
+          </div>
+        )}
+        {s(expr.signature_style) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">标志风格</div>
+            <div className="pcard-field-value">{s(expr.signature_style)}</div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Card 8: 推理逻辑 */}
+      {(s(logic.risk_vs_opportunity) || s(logic.audience_stage_vs_method) || s(logic.long_term_vs_immediate) || s(logic.real_life_vs_rules)) && (
+        <SectionCard title="推理逻辑">
+          {s(logic.risk_vs_opportunity) && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">风险 vs 机会</div>
+              <div className="pcard-field-value">{s(logic.risk_vs_opportunity)}</div>
+            </div>
+          )}
+          {s(logic.audience_stage_vs_method) && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">受众阶段 vs 方法</div>
+              <div className="pcard-field-value">{s(logic.audience_stage_vs_method)}</div>
+            </div>
+          )}
+          {s(logic.long_term_vs_immediate) && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">长期 vs 短期</div>
+              <div className="pcard-field-value">{s(logic.long_term_vs_immediate)}</div>
+            </div>
+          )}
+          {s(logic.real_life_vs_rules) && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">实操 vs 规则</div>
+              <div className="pcard-field-value">{s(logic.real_life_vs_rules)}</div>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Card 9: 高频场景 & 案例方向 */}
+      {(arr(pd?.high_freq_scenes).length > 0 || arr(pd?.case_directions).length > 0) && (
+        <SectionCard title="场景与案例">
+          {arr(pd?.high_freq_scenes).length > 0 && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">高频场景</div>
+              <div className="pcard-chips">
+                {arr(pd?.high_freq_scenes).map((s2, i) => <Chip key={i} label={s2} variant="purple" />)}
+              </div>
+            </div>
+          )}
+          {arr(pd?.case_directions).length > 0 && (
+            <div className="pcard-field">
+              <div className="pcard-field-label">案例方向</div>
+              <ul style={{ paddingLeft: 16, margin: '4px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                {arr(pd?.case_directions).map((c, i) => <li key={i} style={{ marginBottom: 4 }}>{c}</li>)}
+              </ul>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Card 10: 标题与开场 */}
+      <SectionCard title="标题与开场">
+        {arr(titleStyle.preferred).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">偏好标题风格</div>
+            <div className="pcard-chips">
+              {arr(titleStyle.preferred).map((t, i) => <Chip key={i} label={t} variant="green" />)}
+            </div>
+          </div>
+        )}
+        {arr(titleStyle.avoid).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">避免标题风格</div>
+            <div className="pcard-chips">
+              {arr(titleStyle.avoid).map((t, i) => <Chip key={i} label={t} variant="red" />)}
+            </div>
+          </div>
+        )}
+        {arr(titleStyle.effective_angles).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">有效切角</div>
+            <div className="pcard-chips">
+              {arr(titleStyle.effective_angles).map((t, i) => <Chip key={i} label={t} variant="amber" />)}
+            </div>
+          </div>
+        )}
+        {s(openingStyle.preferred) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">开场偏好</div>
+            <div className="pcard-field-value">{s(openingStyle.preferred)}</div>
+          </div>
+        )}
+        {s(openingStyle.approach) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">开场方式</div>
+            <div className="pcard-field-value">{s(openingStyle.approach)}</div>
+          </div>
+        )}
+        {s(pd?.closing_style) && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">结尾风格</div>
+            <div className="pcard-field-value">{s(pd?.closing_style)}</div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Card 11: 禁区与改写原则 */}
+      <SectionCard title="禁区与改写原则">
+        {arr(taboo.forbidden_phrases).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">禁用词汇</div>
+            <div className="pcard-chips">
+              {arr(taboo.forbidden_phrases).map((p, i) => <Chip key={i} label={`× ${p}`} variant="red" />)}
+            </div>
+          </div>
+        )}
+        {arr(taboo.forbidden_tone).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">禁用语气</div>
+            <div className="pcard-chips">
+              {arr(taboo.forbidden_tone).map((t, i) => <Chip key={i} label={t} variant="red" />)}
+            </div>
+          </div>
+        )}
+        {arr(taboo.forbidden_title_style).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">禁用标题风格</div>
+            <div className="pcard-chips">
+              {arr(taboo.forbidden_title_style).map((t, i) => <Chip key={i} label={t} variant="muted" />)}
+            </div>
+          </div>
+        )}
+        {arr(taboo.persona_breaking_patterns).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">破坏人设的模式</div>
+            <div className="pcard-chips">
+              {arr(taboo.persona_breaking_patterns).map((p, i) => <Chip key={i} label={p} variant="muted" />)}
+            </div>
+          </div>
+        )}
+        {arr(pd?.rewrite_principles).length > 0 && (
+          <div className="pcard-field">
+            <div className="pcard-field-label">改写原则</div>
+            <ul style={{ paddingLeft: 16, margin: '4px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+              {arr(pd?.rewrite_principles).map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
             </ul>
           </div>
         )}
       </SectionCard>
-
-      {/* Card 6: 论据素材 */}
-      {(objArr(evidence.key_quotes).length > 0 || objArr(evidence.concrete_cases).length > 0) && (
-        <SectionCard title="论据素材">
-          {objArr(evidence.key_quotes).length > 0 && (
-            <div className="pcard-field">
-              <div className="pcard-field-label">核心引用</div>
-              {objArr(evidence.key_quotes).map((q, i) => (
-                <blockquote key={i} className="pcard-blockquote">
-                  「{s(q.quote)}」
-                  {s(q.source_type) && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>({s(q.source_type)})</span>}
-                </blockquote>
-              ))}
-            </div>
-          )}
-          {objArr(evidence.concrete_cases).length > 0 && (
-            <div className="pcard-field">
-              <div className="pcard-field-label">典型案例</div>
-              {objArr(evidence.concrete_cases).map((c, i) => (
-                <div key={i} className="case-item">
-                  <div className="case-title">{s(c.case)}</div>
-                  {s(c.context) && <div className="case-context">{s(c.context)}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      )}
-
-      {/* Card 7: 扩展模块 (conditional) */}
-      {modules.length > 0 && (
-        <SectionCard title="扩展模块">
-          {modules.map((m, i) => (
-            <div key={i} className="pcard-field" style={{ borderBottom: i < modules.length - 1 ? '1px solid var(--border)' : 'none', paddingBottom: 14 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>{s(m.name)}</div>
-              <div className="pcard-field-value">{s(m.description)}</div>
-              {s(m.example_from_kb) && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--green-dim)', borderLeft: '2px solid var(--green)', fontSize: 12, color: 'var(--green)' }}>
-                  {s(m.example_from_kb)}
-                </div>
-              )}
-            </div>
-          ))}
-        </SectionCard>
-      )}
     </div>
   )
 }
@@ -942,9 +1120,14 @@ export default function GuestPersonaPage() {
   }
 
   async function handleDeleteKbEntry() {
-    if (!deleteConfirmId) return
+    if (!deleteConfirmId || !userId) return
     setDeleting(true)
-    await supabase.from('guest_kb_entries').delete().eq('id', deleteConfirmId)
+    const { error } = await supabase
+      .from('guest_kb_entries')
+      .delete()
+      .eq('id', deleteConfirmId)
+      .eq('guest_id', userId)
+    if (error) alert('删除失败：' + error.message)
     setDeleteConfirmId(null)
     setDeleting(false)
     if (userId) await loadData(userId)
